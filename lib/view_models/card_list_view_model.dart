@@ -15,6 +15,7 @@ class CardListViewModel extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
+  /// Carga TODAS las cartas de la colección.
   Future<void> fetchCards() async {
     _isLoading = true;
     _errorMessage = null;
@@ -34,9 +35,32 @@ class CardListViewModel extends ChangeNotifier {
     }
   }
 
+  // --- MÉTODO NUEVO AÑADIDO AQUÍ ---
+  /// Carga solo las cartas de un lote de procesamiento específico.
+  Future<void> fetchCardsByJobId(String jobId) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      // Usamos el método que ya añadimos al SupabaseService
+      _cards = await _supabaseService.getCardsByJobId(jobId);
+
+      if (_cards.isNotEmpty) {
+        // Seleccionamos la primera carta de la lista por defecto
+        _selectedCard = _cards.first;
+      } else {
+        _selectedCard = null;
+      }
+    } catch (e) {
+      _errorMessage = e.toString();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   void selectCard(Card card) {
-    // --- ¡AQUÍ ESTÁ EL CAMBIO! ---
-    // Usamos el nuevo identificador 'idCarta' para comparar.
     if (_selectedCard?.idCarta != card.idCarta) {
       _selectedCard = card;
       notifyListeners();

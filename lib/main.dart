@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Necesario para SystemChrome
 import 'package:supabase_flutter/supabase_flutter.dart'; // Necesario para Supabase
+import 'package:provider/provider.dart'; // <-- 1. IMPORTAMOS PROVIDER
+import 'view_models/card_list_view_model.dart'; // <-- 2. IMPORTAMOS EL VIEWMODEL
 import 'screens/home_screen.dart'; // La pantalla de inicio
 
 Future<void> main() async {
@@ -56,11 +58,20 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'YuGiOh Card Manager',
-      theme: ThemeData.dark(),
-      home: const HomeScreen(),
+    // 3. AQUÍ HACEMOS EL CAMBIO
+    // Envolvemos el MaterialApp con MultiProvider para que el ViewModel
+    // esté disponible en toda la aplicación.
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (context) => CardListViewModel()),
+        // Si en el futuro tienes más ViewModels, los añades aquí.
+      ],
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'YuGiOh Card Manager',
+        theme: ThemeData.dark(),
+        home: const HomeScreen(),
+      ),
     );
   }
 }
