@@ -17,6 +17,7 @@ class _CardListScreenState extends State<CardListScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Esta pantalla siempre carga TODAS las cartas, así que esta llamada es correcta.
       Provider.of<CardListViewModel>(context, listen: false).fetchCards();
     });
   }
@@ -62,9 +63,7 @@ class _CardListScreenState extends State<CardListScreen> {
               child: Text(
                 'No tienes ninguna carta en tu colección.\n¡Empieza a escanear para añadir cartas!',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white70,
-                ), // Blanco suave para el texto si no hay cartas
+                style: TextStyle(color: Colors.white70),
               ),
             );
           }
@@ -81,7 +80,9 @@ class _CardListScreenState extends State<CardListScreen> {
     );
   }
 
-  /// Construye el panel izquierdo que muestra la imagen y los detalles.
+  // --- LAS FUNCIONES DE AYUDA HAN SIDO REEMPLAZADAS POR LAS VERSIONES UNIVERSALES ---
+
+  /// Panel izquierdo que muestra la imagen y los detalles.
   Widget _buildLeftPanel(Card? selectedCard) {
     return Expanded(
       flex: 3,
@@ -94,14 +95,11 @@ class _CardListScreenState extends State<CardListScreen> {
                   child: Text(
                     'Selecciona una carta de la lista para ver sus detalles',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white70,
-                    ), // Blanco suave para el texto
+                    style: TextStyle(color: Colors.white70),
                   ),
                 )
                 : Column(
                   children: [
-                    // --- IMAGEN DE LA CARTA SELECCIONADA ---
                     SizedBox(
                       height: MediaQuery.of(context).size.height * 0.5,
                       child: Center(
@@ -117,7 +115,7 @@ class _CardListScreenState extends State<CardListScreen> {
                                         child: CircularProgressIndicator(
                                           color: Colors.white,
                                         ),
-                                      ), // Spinner blanco
+                                      ),
                                   errorWidget:
                                       (context, url, error) => Image.asset(
                                         'packcodes/card_placeholder.png',
@@ -129,8 +127,7 @@ class _CardListScreenState extends State<CardListScreen> {
                       height: 24,
                       thickness: 1,
                       color: Colors.white38,
-                    ), // Divisor más sutil
-                    // --- DETALLES DE LA CARTA (SCROLLABLE) ---
+                    ),
                     Expanded(
                       child: SingleChildScrollView(
                         child: _buildCardDetails(selectedCard),
@@ -149,7 +146,6 @@ class _CardListScreenState extends State<CardListScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // --- NOMBRE (MÁS GRANDE Y BLANCO) ---
           _buildDetailRow(
             'Nombre:',
             card.nombre,
@@ -160,68 +156,26 @@ class _CardListScreenState extends State<CardListScreen> {
             ),
             valueStyle: const TextStyle(fontSize: 18, color: Colors.white70),
           ),
-          const SizedBox(height: 8), // Espacio entre nombre y el resto
-
+          const SizedBox(height: 8),
+          _buildDetailRow('Código:', card.idCarta),
+          _buildDetailRow('Tipo:', card.tipo),
+          _buildDetailRow('Marco:', card.marcoCarta),
+          // Usamos el operador "?." (null-aware) para evitar el error si la lista es nula
+          _buildDetailRow('Subtipo:', card.subtipo?.join(' / ')),
+          _buildDetailRow('Atributo:', card.atributo),
+          _buildDetailRow('Nivel/Rango/Link:', card.nivelRankLink?.toString()),
           _buildDetailRow(
-            'Código:',
-            card.idCarta,
-            valueStyle: const TextStyle(color: Colors.white70),
+            'ATK/DEF:',
+            card.atk != null ? '${card.atk}/${card.def ?? '?'}' : null,
           ),
-          if (card.tipo != null)
-            _buildDetailRow(
-              'Tipo:',
-              card.tipo!,
-              valueStyle: const TextStyle(color: Colors.white70),
-            ),
-          if (card.marcoCarta != null)
-            _buildDetailRow(
-              'Marco:',
-              card.marcoCarta!,
-              valueStyle: const TextStyle(color: Colors.white70),
-            ),
-          if (card.subtipo.isNotEmpty)
-            _buildDetailRow(
-              'Subtipo:',
-              card.subtipo.join(' / '),
-              valueStyle: const TextStyle(color: Colors.white70),
-            ),
-          if (card.atributo != null)
-            _buildDetailRow(
-              'Atributo:',
-              card.atributo!,
-              valueStyle: const TextStyle(color: Colors.white70),
-            ),
-          if (card.nivelRankLink != null)
-            _buildDetailRow(
-              'Nivel/Rango/Link:',
-              card.nivelRankLink.toString(),
-              valueStyle: const TextStyle(color: Colors.white70),
-            ),
-          if (card.atk != null)
-            _buildDetailRow(
-              'ATK/DEF:',
-              '${card.atk}/${card.def ?? '?'}',
-              valueStyle: const TextStyle(color: Colors.white70),
-            ),
-          if (card.rareza.isNotEmpty)
-            _buildDetailRow(
-              'Rareza:',
-              card.rareza.join(', '),
-              valueStyle: const TextStyle(color: Colors.white70),
-            ),
-          if (card.setExpansion != null)
-            _buildDetailRow(
-              'Set:',
-              card.setExpansion!,
-              valueStyle: const TextStyle(color: Colors.white70),
-            ),
-
-          // Bloque de descripción corregido y con estilos blancos
+          _buildDetailRow(
+            'Rareza:',
+            card.rareza?.join(', '),
+          ), // Usamos "?." aquí también
+          _buildDetailRow('Set:', card.setExpansion),
           if (card.descripcion != null && card.descripcion!['es'] != null)
             Padding(
-              padding: const EdgeInsets.only(
-                top: 16.0,
-              ), // Más espacio antes de la descripción
+              padding: const EdgeInsets.only(top: 16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -232,42 +186,36 @@ class _CardListScreenState extends State<CardListScreen> {
                       color: Colors.white,
                     ),
                   ),
-                  const SizedBox(
-                    height: 8,
-                  ), // Espacio entre título y texto de descripción
+                  const SizedBox(height: 8),
                   Text(
                     card.descripcion!['es']!.toString(),
                     softWrap: true,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 14,
-                    ), // Texto de descripción más pequeño y blanco
+                    style: const TextStyle(color: Colors.white70, fontSize: 14),
                   ),
                 ],
               ),
             ),
-
-          const SizedBox(height: 20), // Espacio final
+          const SizedBox(height: 20),
         ],
       ),
     );
   }
 
-  /// Función de ayuda mejorada para no repetir código al crear las filas de detalles.
+  /// Función de ayuda universal para no repetir código al crear las filas de detalles.
   Widget _buildDetailRow(
     String label,
-    String value, {
+    String? value, {
     TextStyle? labelStyle,
     TextStyle? valueStyle,
   }) {
-    // Si el valor está vacío, no mostramos la fila
-    if (value.trim().isEmpty) return const SizedBox.shrink();
-
+    // La clave: si el valor es nulo o está vacío, no dibujamos nada.
+    if (value == null || value.trim().isEmpty) {
+      return const SizedBox.shrink();
+    }
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: RichText(
         text: TextSpan(
-          // Estilo base para el texto, si no se especifica uno más concreto
           style: const TextStyle(color: Colors.white, fontSize: 14),
           children: [
             TextSpan(
@@ -292,7 +240,6 @@ class _CardListScreenState extends State<CardListScreen> {
   /// Panel derecho que muestra la colección con animaciones y el indicador de cantidad.
   Widget _buildRightPanel(CardListViewModel viewModel) {
     const int columnCount = 5;
-
     return Expanded(
       flex: 5,
       child: AnimationLimiter(
@@ -307,6 +254,8 @@ class _CardListScreenState extends State<CardListScreen> {
           itemCount: viewModel.cards.length,
           itemBuilder: (context, index) {
             final card = viewModel.cards[index];
+            // Esta pantalla asume que todas las cartas son válidas,
+            // ya que muestra la colección principal. No necesita el placeholder de error.
             return AnimationConfiguration.staggeredGrid(
               position: index,
               duration: const Duration(milliseconds: 375),
@@ -320,9 +269,7 @@ class _CardListScreenState extends State<CardListScreen> {
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          // Fondo negro para rellenar los huecos
                           Container(color: Colors.black),
-                          // Imagen de la carta
                           if (card.imagen != null)
                             CachedNetworkImage(
                               imageUrl: card.imagen!,
@@ -335,7 +282,6 @@ class _CardListScreenState extends State<CardListScreen> {
                                     'packcodes/card_placeholder.png',
                                   ),
                             ),
-                          // Indicador de cantidad
                           if (card.cantidad > 1)
                             Positioned(
                               bottom: 4,

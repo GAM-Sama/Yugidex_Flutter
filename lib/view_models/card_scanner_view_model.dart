@@ -12,7 +12,7 @@ class CardScannerViewModel extends ChangeNotifier {
 
   ViewState _state = ViewState.idle;
   String _feedbackText = '';
-  List<String> _scannedCodes = [];
+  final List<String> _scannedCodes = [];
 
   static const int batchLimit = 100;
 
@@ -37,8 +37,9 @@ class CardScannerViewModel extends ChangeNotifier {
   }
 
   Future<void> scanAndAddToList(CameraController cameraController) async {
-    if (_state == ViewState.busy || !cameraController.value.isInitialized)
+    if (_state == ViewState.busy || !cameraController.value.isInitialized) {
       return;
+    }
     _setState(ViewState.busy);
     try {
       final picture = await cameraController.takePicture();

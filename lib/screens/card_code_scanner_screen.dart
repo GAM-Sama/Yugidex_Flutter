@@ -101,8 +101,9 @@ class _CardCodeScannerScreenState extends State<CardCodeScannerScreen>
   }
 
   Future<void> _onFocusTap(TapDownDetails details) async {
-    if (_cameraController == null || !_cameraController!.value.isInitialized)
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
       return;
+    }
     try {
       if (mounted) {
         setState(() {
