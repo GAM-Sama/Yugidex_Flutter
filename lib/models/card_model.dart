@@ -1,58 +1,51 @@
-import 'dart:convert'; // Necesario para decodificar JSON
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 @immutable
 class Card {
-  // ... (las propiedades de la clase no cambian)
   final String idCarta;
   final int cantidad;
-  final String nombre;
+  final String? nombre; // MODIFICADO: Ahora puede ser nulo
   final String? imagen;
   final String? marcoCarta;
   final String? tipo;
-  final List<String> subtipo;
+  final List<String>? subtipo; // MODIFICADO: Ahora puede ser nulo
   final String? atributo;
   final Map<String, dynamic>? descripcion;
   final String? atk;
   final String? def;
   final int? nivelRankLink;
-  final List<String> rareza;
+  final List<String>? rareza; // MODIFICADO: Ahora puede ser nulo
   final String? setExpansion;
   final String? iconoCarta;
 
   const Card({
     required this.idCarta,
     required this.cantidad,
-    required this.nombre,
+    this.nombre, // MODIFICADO: Ya no es 'required'
     this.imagen,
     this.marcoCarta,
     this.tipo,
-    required this.subtipo,
+    this.subtipo, // MODIFICADO: Ya no es 'required'
     this.atributo,
     this.descripcion,
     this.atk,
     this.def,
     this.nivelRankLink,
-    required this.rareza,
+    this.rareza, // MODIFICADO: Ya no es 'required'
     this.setExpansion,
     this.iconoCarta,
   });
 
-  /// Este constructor ahora es "a prueba de balas" contra errores de tipo.
   factory Card.fromJson(Map<String, dynamic> json) {
-    // --- NUEVA FUNCIÓN DE AYUDA SÚPER SEGURA ---
-    // Parsea un campo que debería ser un Mapa, pero podría venir como String.
+    // Las funciones de ayuda se mantienen, ¡son muy útiles!
     Map<String, dynamic>? parseJsonMap(dynamic value) {
-      if (value is Map) {
-        // Si ya es un Mapa, perfecto.
-        return Map<String, dynamic>.from(value);
-      }
+      if (value is Map) return Map<String, dynamic>.from(value);
       if (value is String) {
-        // Si es un String, intentamos decodificarlo como JSON.
         try {
           return jsonDecode(value) as Map<String, dynamic>;
         } catch (e) {
-          return null; // Si no es un JSON válido, devolvemos null.
+          return null;
         }
       }
       return null;
@@ -68,21 +61,29 @@ class Card {
 
     return Card(
       idCarta: json['ID_Carta']?.toString() ?? '',
-      cantidad: json['Cantidad'] as int? ?? 0,
-      nombre: json['Nombre'] as String? ?? 'Sin Nombre',
+      cantidad:
+          json['Cantidad'] as int? ?? 1, // Asumimos 1 si no viene cantidad
+      // MODIFICADO: Eliminamos el valor por defecto 'Sin Nombre'.
+      // Si json['Nombre'] es nulo, this.nombre será nulo. ¡Justo lo que necesitamos!
+      nombre: json['Nombre'] as String?,
+
       imagen: json['Imagen'] as String?,
       marcoCarta: json['Marco_Carta'] as String?,
       tipo: json['Tipo'] as String?,
-      subtipo: splitString(json['Subtipo'], '/'),
+
+      // MODIFICADO: Comprobamos si el campo existe antes de procesarlo
+      subtipo:
+          json['Subtipo'] != null ? splitString(json['Subtipo'], '/') : null,
+
       atributo: json['Atributo'] as String?,
-
-      // Usamos nuestra nueva función segura para parsear la descripción.
       descripcion: parseJsonMap(json['Descripcion']),
-
       atk: json['ATK']?.toString(),
       def: json['DEF']?.toString(),
       nivelRankLink: json['Nivel_Rank_Link'] as int?,
-      rareza: splitString(json['Rareza'], ','),
+
+      // MODIFICADO: Comprobamos si el campo existe antes de procesarlo
+      rareza: json['Rareza'] != null ? splitString(json['Rareza'], ',') : null,
+
       setExpansion: json['Set_Expansion'] as String?,
       iconoCarta: json['Icono Carta'] as String?,
     );

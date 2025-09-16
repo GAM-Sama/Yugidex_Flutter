@@ -2,9 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-
-// NUEVO: Importamos tu nueva pantalla. Asegúrate de que la ruta sea correcta.
-import 'new_cards_list_screen.dart'; // <--- ¡ASEGÚRATE DE QUE ESTA RUTA ES CORRECTA!
+import 'new_cards_list_screen.dart';
 
 class ProcessingScreen extends StatefulWidget {
   final String jobId;
@@ -23,7 +21,8 @@ class ProcessingScreen extends StatefulWidget {
 class _ProcessingScreenState extends State<ProcessingScreen> {
   Timer? _pollingTimer;
   int _processedCount = 0;
-  String _currentCardName = '';
+  // MODIFICADO: Usamos una variable más genérica para el mensaje de estado.
+  String _currentStatusMessage = 'Iniciando proceso...';
   bool _isComplete = false;
 
   @override
@@ -33,7 +32,7 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
       _checkProgress();
     } else {
       _isComplete = true;
-      _navigateToNewCardsScreen(); // Navegamos si no hay cartas
+      _navigateToNewCardsScreen();
     }
     _pollingTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       if (!_isComplete) {
@@ -68,19 +67,29 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
         final int processed = data['processed'] as int? ?? 0;
         final lastCardData = data['lastProcessedCard'] as Map<String, dynamic>?;
 
+        // --- LÓGICA MODIFICADA PARA INTERPRETAR LA NUEVA RESPUESTA ---
         setState(() {
           _processedCount = processed;
-          if (lastCardData != null && lastCardData['name'] != null) {
-            _currentCardName = lastCardData['name'];
+          if (lastCardData != null) {
+            final bool success = lastCardData['success'] as bool? ?? false;
+            final String code = lastCardData['code'] ?? 'desconocido';
+
+            if (success) {
+              final String name = lastCardData['name'] ?? 'desconocido';
+              _currentStatusMessage = 'Buscando ${name}...';
+            } else {
+              _currentStatusMessage = 'No se encontró info para ${code}...';
+            }
           }
         });
+        // --- FIN DE LA LÓGICA MODIFICADA ---
 
         if (_processedCount >= widget.totalCards) {
           _pollingTimer?.cancel();
           setState(() {
             _isComplete = true;
           });
-          _navigateToNewCardsScreen(); // <--- LLAMADA A LA NUEVA FUNCIÓN
+          _navigateToNewCardsScreen();
         }
       } else {
         throw Exception(
@@ -90,20 +99,19 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
     } catch (e) {
       debugPrint("Error consultando progreso: $e");
       _pollingTimer?.cancel();
-      // ...
+      // MODIFICADO: Actualizamos la nueva variable en caso de error
+      setState(() {
+        _currentStatusMessage = 'Error de conexión con el servidor.';
+      });
     }
   }
 
-  // MODIFICADO: Ahora navega a tu nueva pantalla después de 2 segundos.
   void _navigateToNewCardsScreen() {
     if (!mounted) return;
-
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) {
-        // Usamos pushReplacement para que el usuario no pueda "volver" a la pantalla de carga.
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            // Pasamos el jobId a la nueva pantalla para que sepa qué cartas mostrar.
             builder: (context) => NewCardsListScreen(jobId: widget.jobId),
           ),
         );
@@ -113,8 +121,6 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // El build se mantiene igual que en la versión anterior.
-    // Solo hemos cambiado la lógica de navegación al finalizar.
     return Scaffold(
       backgroundColor: Colors.grey[900],
       appBar: AppBar(
@@ -147,7 +153,6 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // ... (toda la UI se mantiene igual)
                 const Text(
                   "Identificando Cartas...",
                   style: TextStyle(
@@ -174,13 +179,15 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
                   "Procesando carta $_processedCount de ${widget.totalCards}...",
                   style: const TextStyle(fontSize: 16, color: Colors.white70),
                 ),
+
+                // --- WIDGET DE TEXTO MODIFICADO ---
                 SizedBox(
                   height: 50,
                   child: Center(
                     child:
-                        !_isComplete && _currentCardName.isNotEmpty
+                        !_isComplete && _currentStatusMessage.isNotEmpty
                             ? Text(
-                              'Buscando $_currentCardName...',
+                              _currentStatusMessage, // <-- Ahora solo muestra el mensaje de estado
                               style: const TextStyle(
                                 fontSize: 18,
                                 color: Colors.white,
@@ -191,6 +198,8 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
                             : const SizedBox.shrink(),
                   ),
                 ),
+
+                // --- FIN DE LA MODIFICACIÓN ---
                 const SizedBox(height: 20),
                 if (!_isComplete)
                   const Text(
