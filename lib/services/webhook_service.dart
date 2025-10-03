@@ -1,47 +1,63 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // <-- CAMBIO 1: Importamos dotenv
+import 'package:supabase_flutter/supabase_flutter.dart'; // <-- CAMBIO 2: Importamos Supabase para la sesión
 
 class WebhookService {
-  // Mantenemos tu URL actualizada. Apunta al workflow principal.
-  static const String _webhookUrl =
-      "https://primary-production-6c347.up.railway.app/webhook-test/67ac33b8-be5a-448a-b389-43869a4819d0";
+  // CAMBIO 3: Leemos la URL desde las variables de entorno.
+  // Usamos 'late final' para asegurarnos de que se inicializa una vez y no cambia.
+  late final String _webhookUrl;
 
-  // --- MÉTODO MODIFICADO ---
-  // Antes devolvía: Future<bool>
-  // Ahora devuelve: Future<String?> (una promesa de un String, que puede ser nulo)
+  WebhookService() {
+    // Leemos la variable en el constructor. Si no existe, la app fallará al arrancar
+    // lo cual es bueno, porque nos avisa del problema inmediatamente.
+    _webhookUrl = dotenv.env['N8N_WEBHOOK_URL']!;
+  }
+
   Future<String?> sendCodes(List<String> codes) async {
     if (codes.isEmpty) return null;
 
+    // CAMBIO 4: Obtenemos la sesión actual del usuario para acceder al token.
+    final session = Supabase.instance.client.auth.currentSession;
+    if (session == null) {
+      debugPrint("⚠️ No se pueden enviar códigos: no hay sesión de usuario activa.");
+      return null;
+    }
+    final accessToken = session.accessToken;
+
     try {
-      // Esta parte es idéntica, seguimos enviando el lote de códigos
+      // CAMBIO 5: Añadimos el token a las cabeceras de la petición.
+      final headers = {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $accessToken", // Formato estándar para JWT
+      };
+
+      // El cuerpo de la petición se mantiene igual.
+      final body = jsonEncode({
+        "codes": codes,
+        "timestamp": DateTime.now().toIso8601String(),
+      });
+
       final response = await http.post(
         Uri.parse(_webhookUrl),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "codes": codes,
-          "timestamp": DateTime.now().toIso8601String(),
-        }),
+        headers: headers, // Usamos las nuevas cabeceras
+        body: body,
       );
 
-      // --- AQUÍ ESTÁ EL CAMBIO ---
       if (response.statusCode == 200) {
-        // La petición fue exitosa. Ahora, en lugar de devolver 'true',
-        // leemos la respuesta para encontrar el jobId.
         final data = jsonDecode(response.body);
-        final jobId = data['jobId'] as String?; // Extraemos el jobId
-        debugPrint("✅ Lote iniciado en n8n con Job ID: $jobId");
-        return jobId; // Devolvemos el jobId
+        final jobId = data['jobId'] as String?;
+        debugPrint("✅ Lote iniciado en n8n con Job ID: $jobId para el usuario ${session.user.id}");
+        return jobId;
       } else {
-        // Si el servidor falla, no hay jobId, así que devolvemos null.
         debugPrint(
-          "Error al enviar el lote: ${response.statusCode} - ${response.body}",
+          "❌ Error al enviar el lote: ${response.statusCode} - ${response.body}",
         );
         return null;
       }
     } catch (e) {
-      // Si la conexión falla, también devolvemos null.
-      debugPrint("Excepción en WebhookService: $e");
+      debugPrint("❌ Excepción en WebhookService: $e");
       return null;
     }
   }
