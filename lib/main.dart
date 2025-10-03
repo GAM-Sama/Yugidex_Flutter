@@ -1,18 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Necesario para SystemChrome
-import 'package:supabase_flutter/supabase_flutter.dart'; // Necesario para Supabase
-import 'package:provider/provider.dart'; // <-- 1. IMPORTAMOS PROVIDER
-import 'view_models/card_list_view_model.dart'; // <-- 2. IMPORTAMOS EL VIEWMODEL
-import 'screens/home_screen.dart'; // La pantalla de inicio
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'providers/auth_provider.dart';
+import 'services/auth_service.dart';
+import 'screens/splash_screen.dart';
+import 'view_models/card_list_view_model.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Carga las variables de entorno desde el archivo .env
+  await dotenv.load(fileName: ".env");
 
-  // Inicializar Supabase antes de lanzar la app
+  // Inicializa Supabase usando las variables de entorno
   await Supabase.initialize(
-    url: 'https://tjjjowhlbcbocktbihie.supabase.co',
-    anonKey:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRqampvd2hsYmNib2NrdGJpaGllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3Mzk1OTIsImV4cCI6MjA3MjMxNTU5Mn0.2pO8vgh7TkVT_iRmu2sSTAJXZLX-rhPCYO4ezRohofY',
+    url: dotenv.env['SUPABASE_URL']!,
+    anonKey: dotenv.env['SUPABASE_KEY']!,
   );
 
   runApp(const MyApp());
@@ -34,12 +39,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 
   void _applyForcedLandscape() {
-    // Fuerza orientación horizontal
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]);
-    // Activa fullscreen inmersivo
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
@@ -58,19 +61,33 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    // 3. AQUÍ HACEMOS EL CAMBIO
-    // Envolvemos el MaterialApp con MultiProvider para que el ViewModel
-    // esté disponible en toda la aplicación.
+    // Envolvemos MaterialApp con MultiProvider para que los ViewModels/Providers
+    // estén disponibles en toda la aplicación.
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (context) => CardListViewModel()),
-        // Si en el futuro tienes más ViewModels, los añades aquí.
+        // 1. Proveemos una instancia de AuthService.
+        Provider<AuthService>(
+          create: (_) => AuthService(),
+        ),
+        // 2. Usamos ChangeNotifierProxyProvider para crear AuthProvider.
+        //    Este provider especial puede LEER otros providers (como AuthService)
+        //    y pasárselo a AuthProvider en su constructor.
+        ChangeNotifierProxyProvider<AuthService, AuthProvider>(
+          create: (context) => AuthProvider(context.read<AuthService>()),
+          update: (context, authService, previousAuthProvider) =>
+              AuthProvider(authService),
+        ),
+        // 3. Mantenemos tu CardListViewModel existente.
+        ChangeNotifierProvider(
+          create: (context) => CardListViewModel(),
+        ),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         title: 'YuGiOh Card Manager',
         theme: ThemeData.dark(),
-        home: const HomeScreen(),
+        // La app ahora arranca en la SplashScreen, que decide a dónde ir.
+        home: const SplashScreen(),
       ),
     );
   }
