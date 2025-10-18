@@ -5,40 +5,71 @@ import 'package:flutter/foundation.dart';
 class Card {
   final String idCarta;
   final int cantidad;
-  final String? nombre; // MODIFICADO: Ahora puede ser nulo
+  final String? nombre;
   final String? imagen;
   final String? marcoCarta;
   final String? tipo;
-  final List<String>? subtipo; // MODIFICADO: Ahora puede ser nulo
+  final List<String>? subtipo;
   final String? atributo;
   final Map<String, dynamic>? descripcion;
   final String? atk;
   final String? def;
   final int? nivelRankLink;
-  final List<String>? rareza; // MODIFICADO: Ahora puede ser nulo
+  final int? ratioEnlace;
+  final List<String>? rareza;
   final String? setExpansion;
   final String? iconoCarta;
 
   const Card({
     required this.idCarta,
     required this.cantidad,
-    this.nombre, // MODIFICADO: Ya no es 'required'
+    this.nombre,
     this.imagen,
     this.marcoCarta,
     this.tipo,
-    this.subtipo, // MODIFICADO: Ya no es 'required'
+    this.subtipo,
     this.atributo,
     this.descripcion,
     this.atk,
     this.def,
     this.nivelRankLink,
-    this.rareza, // MODIFICADO: Ya no es 'required'
+    this.ratioEnlace,
+    this.rareza,
     this.setExpansion,
     this.iconoCarta,
   });
 
   factory Card.fromJson(Map<String, dynamic> json) {
-    // Las funciones de ayuda se mantienen, ¡son muy útiles!
+    // Función auxiliar para convertir valores a string de manera segura
+    String? safeString(dynamic value) {
+      if (value == null) return null;
+      if (value is String) return value;
+      if (value is List) return value.isNotEmpty ? value.first.toString() : null;
+      return value.toString();
+    }
+
+    // Función auxiliar para convertir valores a int de manera segura
+    int? safeInt(dynamic value) {
+      if (value == null) return null;
+      if (value is int) return value;
+      if (value is String) {
+        try {
+          return int.parse(value);
+        } catch (e) {
+          return null;
+        }
+      }
+      return null;
+    }
+
+    // Función auxiliar para convertir listas de manera segura
+    List<String>? safeStringList(dynamic value) {
+      if (value == null) return null;
+      if (value is List) return value.map((item) => item.toString()).toList();
+      if (value is String) return value.split(',').map((item) => item.trim()).toList();
+      return [value.toString()];
+    }
+
     Map<String, dynamic>? parseJsonMap(dynamic value) {
       if (value is Map) return Map<String, dynamic>.from(value);
       if (value is String) {
@@ -51,41 +82,39 @@ class Card {
       return null;
     }
 
-    List<String> splitString(dynamic value, String separator) {
-      if (value is List) return value.map((item) => item.toString()).toList();
-      if (value is String) {
-        return value.split(separator).map((item) => item.trim()).toList();
-      }
-      return [];
-    }
-
-    return Card(
+    final card = Card(
       idCarta: json['ID_Carta']?.toString() ?? '',
-      cantidad:
-          json['Cantidad'] as int? ?? 1, // Asumimos 1 si no viene cantidad
-      // MODIFICADO: Eliminamos el valor por defecto 'Sin Nombre'.
-      // Si json['Nombre'] es nulo, this.nombre será nulo. ¡Justo lo que necesitamos!
-      nombre: json['Nombre'] as String?,
-
-      imagen: json['Imagen'] as String?,
-      marcoCarta: json['Marco_Carta'] as String?,
-      tipo: json['Tipo'] as String?,
-
-      // MODIFICADO: Comprobamos si el campo existe antes de procesarlo
-      subtipo:
-          json['Subtipo'] != null ? splitString(json['Subtipo'], '/') : null,
-
-      atributo: json['Atributo'] as String?,
-      descripcion: parseJsonMap(json['Descripcion']),
-      atk: json['ATK']?.toString(),
-      def: json['DEF']?.toString(),
-      nivelRankLink: json['Nivel_Rank_Link'] as int?,
-
-      // MODIFICADO: Comprobamos si el campo existe antes de procesarlo
-      rareza: json['Rareza'] != null ? splitString(json['Rareza'], ',') : null,
-
-      setExpansion: json['Set_Expansion'] as String?,
-      iconoCarta: json['Icono Carta'] as String?,
+      cantidad: json['Cantidad'] as int? ?? 1,
+      nombre: safeString(json['Nombre']) ?? safeString(json['nombre']),
+      imagen: safeString(json['Imagen']) ?? safeString(json['imagen']),
+      marcoCarta: safeString(json['Marco_Carta']) ?? safeString(json['marco_carta']),
+      tipo: safeString(json['Tipo']) ?? safeString(json['tipo']),
+      subtipo: safeStringList(json['Subtipo']) ?? safeStringList(json['subtipo']),
+      atributo: safeString(json['Atributo']) ?? safeString(json['atributo']),
+      descripcion: parseJsonMap(json['Descripcion']) ?? parseJsonMap(json['descripcion']) ??
+                   (json['Descripcion'] != null ? {'texto': json['Descripcion'].toString()} : null),
+      atk: safeString(json['ATK']) ?? safeString(json['atk']),
+      def: safeString(json['DEF']) ?? safeString(json['def']),
+      nivelRankLink: safeInt(json['Nivel_Rank_Link']) ?? safeInt(json['nivel_rank_link']) ?? safeInt(json['Nivel']) ?? safeInt(json['nivel']),
+      ratioEnlace: safeInt(json['ratio_enlace']) ?? safeInt(json['ratio_enlace']),
+      rareza: safeStringList(json['Rareza']) ?? safeStringList(json['rareza']),
+      setExpansion: safeString(json['Set_Expansion']) ?? safeString(json['set_expansion']),
+      iconoCarta: safeString(json['Icono Carta']) ?? safeString(json['icono_carta']) ?? safeString(json['IconoCarta']),
     );
+
+    // DEBUG: Solo mostrar información básica para evitar logs excesivos
+    print('=== CARD CREADA ===');
+    print('Nombre: "${card.nombre}"');
+    print('Tipo: "${card.tipo}"');
+    print('Subtipo: ${card.subtipo}');
+    print('MarcoCarta: "${card.marcoCarta}"');
+    print('Descripcion: ${card.descripcion != null ? 'Cargada' : 'null'}');
+    print('ATK: "${card.atk}"');
+    print('DEF: "${card.def}"');
+    print('Nivel_Rank_Link: ${card.nivelRankLink}');
+    print('Ratio_Enlace: ${card.ratioEnlace}');
+    print('===================');
+
+    return card;
   }
 }

@@ -2,29 +2,49 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../features/auth/presentation/view_models/auth_view_model.dart'; // <-- 1. IMPORTAMOS EL AUTH VIEW MODEL
+import '../services/supabase_service.dart';
 import '../view_models/card_scanner_view_model.dart';
-import '../view_models/card_list_view_model.dart'; // <-- Importa el ViewModel de la lista
+import '../view_models/card_list_view_model.dart';
 import 'card_code_scanner_screen.dart';
 import 'card_list_screen.dart';
+import 'profile_screen.dart'; // <-- 2. IMPORTAMOS LA PANTALLA DE PERFIL
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // 3. OBTENEMOS LA INFORMACIÓN DEL USUARIO DESDE EL VIEW MODEL
+    // Usamos context.watch para que el widget se reconstruya si el usuario cambia (ej: al cerrar sesión)
+    final authViewModel = context.watch<AuthViewModel>();
+    final userName = authViewModel.userName ?? 'Duelista'; // Usamos 'Duelista' como nombre por defecto
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('YuGiOh! Card Manager'),
-        // Usamos un color oscuro para el AppBar que encaje con el tema general
+        // 4. MOSTRAMOS UN SALUDO PERSONALIZADO
+        title: Text('¡Hola, $userName!'),
         backgroundColor: Colors.grey[900],
         elevation: 4.0,
+        // 5. AÑADIMOS UN BOTÓN DE ACCIÓN PARA IR AL PERFIL
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.account_circle),
+            tooltip: 'Mi Perfil', // Texto que aparece al mantener pulsado
+            onPressed: () {
+              // Navegamos a la pantalla de perfil
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ProfileScreen()),
+              );
+            },
+          ),
+        ],
       ),
-      // El cuerpo ahora será una Fila (Row) para poner los elementos uno al lado del otro
       body: Row(
-        // Indicamos que los elementos se estiren para ocupar todo el alto
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Panel de la Izquierda: Añadir Cartas
+          // Panel de la Izquierda: Añadir Cartas (sin cambios)
           Expanded(
             child: _buildMenuCard(
               context: context,
@@ -32,38 +52,39 @@ class HomeScreen extends StatelessWidget {
               icon: Icons.camera_alt_outlined,
               color: Colors.indigo[700]!,
               onTap: () {
-                // Navegamos a la pantalla del escáner
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder:
-                        (context) => ChangeNotifierProvider(
-                          create: (_) => CardScannerViewModel(),
-                          child: const CardCodeScannerScreen(),
-                        ),
+                    builder: (context) => ChangeNotifierProvider(
+                      create: (_) => CardScannerViewModel(),
+                      child: const CardCodeScannerScreen(),
+                    ),
                   ),
                 );
               },
             ),
           ),
-          // Panel de la Derecha: Ver Cartas
+          // Panel de la Derecha: Ver Cartas (sin cambios)
           Expanded(
             child: _buildMenuCard(
               context: context,
-              title: 'Ver Cartas',
+              title: 'Ver Mi Colección', // Pequeño cambio de texto para reflejar que es SU colección
               icon: Icons.style,
               color: Colors.blueGrey[700]!,
               onTap: () {
-                // Navegamos a la pantalla de la lista de cartas
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    // ¡Importante! La pantalla de lista también necesita su propio ViewModel.
-                    builder:
-                        (context) => ChangeNotifierProvider(
-                          create: (_) => CardListViewModel(),
-                          child: const CardListScreen(),
-                        ),
+                    builder: (context) {
+                      // Obtener la instancia existente del Provider global
+                      final cardListViewModel = Provider.of<CardListViewModel>(context, listen: false);
+                      // Inicializar con SupabaseService si no está inicializado
+                      if (cardListViewModel.cards.isEmpty) {
+                        cardListViewModel.initialize(Provider.of<SupabaseService>(context, listen: false));
+                        cardListViewModel.fetchCards();
+                      }
+                      return const CardListScreen();
+                    },
                   ),
                 );
               },
@@ -74,8 +95,7 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  /// Un método de ayuda para construir nuestros paneles de menú.
-  /// Así evitamos repetir el mismo código dos veces (Principio DRY).
+  /// Tu método de ayuda para construir los paneles (sin cambios)
   Widget _buildMenuCard({
     required BuildContext context,
     required String title,
