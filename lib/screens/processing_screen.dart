@@ -107,14 +107,22 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
   }
 
   void _navigateToNewCardsScreen() {
-    if (!mounted) return;
+    print('🔥 ProcessingScreen - _navigateToNewCardsScreen iniciado');
+    if (!mounted) {
+      print('❌ ProcessingScreen - Widget no está montado');
+      return;
+    }
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) {
+        print('🔥 ProcessingScreen - Navegando a NewCardsListScreen con jobId: ${widget.jobId}');
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (context) => NewCardsListScreen(jobId: widget.jobId),
           ),
         );
+        print('✅ ProcessingScreen - Navegación completada');
+      } else {
+        print('❌ ProcessingScreen - Widget no está montado durante navegación');
       }
     });
   }

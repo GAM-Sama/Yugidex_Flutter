@@ -45,40 +45,106 @@ class _CardCodeScannerScreenState extends State<CardCodeScannerScreen>
   }
 
   Future<void> _initializeCamera() async {
-    final cameras = await availableCameras();
-    final backCamera = cameras.firstWhere(
-      (c) => c.lensDirection == CameraLensDirection.back,
-      orElse: () => cameras.first,
-    );
-    _cameraController = CameraController(
-      backCamera,
-      ResolutionPreset.max,
-      enableAudio: false,
-    );
-    await _cameraController!.initialize();
-    if (!mounted) return;
-    _minZoomLevel = await _cameraController!.getMinZoomLevel();
-    _maxZoomLevel = await _cameraController!.getMaxZoomLevel();
+    try {
+      final cameras = await availableCameras();
+      final backCamera = cameras.firstWhere(
+        (c) => c.lensDirection == CameraLensDirection.back,
+        orElse: () => cameras.first,
+      );
+
+      // Try different resolution presets if high fails
+      ResolutionPreset preset = ResolutionPreset.high;
+
+      _cameraController = CameraController(
+        backCamera,
+        preset,
+        enableAudio: false,
+      );
+
+      await _cameraController!.initialize();
+
+      if (!mounted) return;
+
+      _minZoomLevel = await _cameraController!.getMinZoomLevel();
+      _maxZoomLevel = await _cameraController!.getMaxZoomLevel();
+
+    } catch (e) {
+      debugPrint("Error initializing camera with high resolution: $e");
+
+      // Try with medium resolution if high fails
+      try {
+        final cameras = await availableCameras();
+        final backCamera = cameras.firstWhere(
+          (c) => c.lensDirection == CameraLensDirection.back,
+          orElse: () => cameras.first,
+        );
+
+        _cameraController = CameraController(
+          backCamera,
+          ResolutionPreset.medium,
+          enableAudio: false,
+        );
+
+        await _cameraController!.initialize();
+
+        if (!mounted) return;
+
+        _minZoomLevel = await _cameraController!.getMinZoomLevel();
+        _maxZoomLevel = await _cameraController!.getMaxZoomLevel();
+
+      } catch (e2) {
+        debugPrint("Error initializing camera with medium resolution: $e2");
+        if (mounted) {
+          _showCameraErrorDialog();
+        }
+      }
+    }
   }
 
   void _showHelpDialog() {
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text("Instrucciones"),
-            content: const Text(
-              'Apunta con la cámara al código de la carta (ej. "SDK-001") y pulsa "Escanear". '
-              'Repite para añadir más cartas. Cuando termines, pulsa "Enviar".\n\n'
-              '👉 TIP: toca en la pantalla para reenfocar la cámara.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text("Entendido"),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        title: const Text("Instrucciones"),
+        content: const Text(
+          'Apunta con la cámara al código de la carta (ej. "SDK-001") y pulsa "Escanear". '
+          'Repite para añadir más cartas. Cuando termines, pulsa "Enviar".\n\n'
+          '👉 TIP: toca en la pantalla para reenfocar la cámara.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text("Entendido"),
           ),
+        ],
+      ),
+    );
+  }
+
+  void _showCameraErrorDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text("Error de Cámara"),
+        content: const Text(
+          'No se pudo inicializar la cámara. Esto puede deberse a problemas de compatibilidad con tu dispositivo.\n\n'
+          'Posibles soluciones:\n'
+          '• Reinicia la aplicación\n'
+          '• Reinicia tu dispositivo\n'
+          '• Verifica que la cámara no esté siendo usada por otra aplicación\n'
+          '• Asegúrate de que la aplicación tenga permisos de cámara',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).pop(); // Go back to previous screen
+            },
+            child: const Text("Aceptar"),
+          ),
+        ],
+      ),
     );
   }
 

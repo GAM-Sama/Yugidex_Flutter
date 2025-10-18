@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../providers/auth_provider.dart';
+import '../../features/auth/presentation/view_models/auth_view_model.dart';
 import 'register_screen.dart'; // Para navegar a la pantalla de registro
 
 class LoginScreen extends StatefulWidget {
@@ -36,7 +36,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       // Llamamos a la función signIn de nuestro provider
-      await context.read<AuthProvider>().signIn(
+      await context.read<AuthViewModel>().signIn(
             _emailController.text.trim(),
             _passwordController.text.trim(),
           );

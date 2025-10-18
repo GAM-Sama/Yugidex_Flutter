@@ -2,7 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart'; // <-- 1. IMPORTAMOS EL AUTH PROVIDER
+import '../features/auth/presentation/view_models/auth_view_model.dart'; // <-- 1. IMPORTAMOS EL AUTH VIEW MODEL
+import '../services/supabase_service.dart';
 import '../view_models/card_scanner_view_model.dart';
 import '../view_models/card_list_view_model.dart';
 import 'card_code_scanner_screen.dart';
@@ -14,10 +15,10 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 3. OBTENEMOS LA INFORMACIÓN DEL USUARIO DESDE EL PROVIDER
+    // 3. OBTENEMOS LA INFORMACIÓN DEL USUARIO DESDE EL VIEW MODEL
     // Usamos context.watch para que el widget se reconstruya si el usuario cambia (ej: al cerrar sesión)
-    final authProvider = context.watch<AuthProvider>();
-    final userName = authProvider.userName ?? 'Duelista'; // Usamos 'Duelista' como nombre por defecto
+    final authViewModel = context.watch<AuthViewModel>();
+    final userName = authViewModel.userName ?? 'Duelista'; // Usamos 'Duelista' como nombre por defecto
 
     return Scaffold(
       appBar: AppBar(
@@ -74,10 +75,16 @@ class HomeScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => ChangeNotifierProvider(
-                      create: (_) => CardListViewModel(),
-                      child: const CardListScreen(),
-                    ),
+                    builder: (context) {
+                      // Obtener la instancia existente del Provider global
+                      final cardListViewModel = Provider.of<CardListViewModel>(context, listen: false);
+                      // Inicializar con SupabaseService si no está inicializado
+                      if (cardListViewModel.cards.isEmpty) {
+                        cardListViewModel.initialize(Provider.of<SupabaseService>(context, listen: false));
+                        cardListViewModel.fetchCards();
+                      }
+                      return const CardListScreen();
+                    },
                   ),
                 );
               },

@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
-import 'auth/login_screen.dart'; // Asegúrate de que esta importación es correcta
+import '../features/auth/presentation/view_models/auth_view_model.dart';
+import 'auth/login_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // Leemos los datos del AuthViewModel sin escuchar cambios, ya que no se espera que cambien
     // Leemos los datos del AuthProvider sin escuchar cambios, ya que no se espera que cambien
     // mientras el usuario está en esta pantalla.
-    final authProvider = context.read<AuthProvider>();
-    final username = authProvider.userName ?? 'Nombre no disponible';
-    final userEmail = authProvider.userEmail ?? 'No hay email disponible';
+    final authViewModel = context.read<AuthViewModel>();
+    final username = authViewModel.userName ?? 'Nombre no disponible';
+    final userEmail = authViewModel.userEmail ?? 'No hay email disponible';
 
     return Scaffold(
       appBar: AppBar(
@@ -63,7 +64,7 @@ class ProfileScreen extends StatelessWidget {
                   ),
                 ),
                 onPressed: () async {
-                  await authProvider.signOut();
+                  await authViewModel.signOut();
                   // --- CORRECCIÓN APLICADA AQUÍ ---
                   // Verificamos si el widget todavía está en el árbol de widgets antes de usar su BuildContext.
                   if (!context.mounted) return;

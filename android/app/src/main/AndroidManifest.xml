@@ -15,7 +15,12 @@
     <application
         android:label="yugioh_scanner"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:hardwareAccelerated="true">
+
+        <!-- Enable hardware acceleration for better graphics performance -->
+        <meta-data android:name="android.hardware.opengl.enabled" android:value="true"/>
+        <meta-data android:name="android.hardware.opengl.version" android:value="0x00020000"/>
 
         <activity
             android:name=".MainActivity"

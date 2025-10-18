@@ -4,10 +4,14 @@ import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'providers/auth_provider.dart';
-import 'services/auth_service.dart';
-import 'screens/splash_screen.dart';
+import 'core/theme/app_theme.dart';
+import 'features/auth/data/services/auth_service.dart';
+import 'features/auth/data/repositories/auth_repository.dart';
+import 'features/auth/presentation/view_models/auth_view_model.dart';
+import 'services/supabase_service.dart';
 import 'view_models/card_list_view_model.dart';
+import 'view_models/processed_cards_view_model.dart';
+import 'screens/splash_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -61,32 +65,37 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    // Envolvemos MaterialApp con MultiProvider para que los ViewModels/Providers
-    // estén disponibles en toda la aplicación.
     return MultiProvider(
       providers: [
-        // 1. Proveemos una instancia de AuthService.
+        // Servicio de autenticación
         Provider<AuthService>(
           create: (_) => AuthService(),
         ),
-        // 2. Usamos ChangeNotifierProxyProvider para crear AuthProvider.
-        //    Este provider especial puede LEER otros providers (como AuthService)
-        //    y pasárselo a AuthProvider en su constructor.
-        ChangeNotifierProxyProvider<AuthService, AuthProvider>(
-          create: (context) => AuthProvider(context.read<AuthService>()),
-          update: (context, authService, previousAuthProvider) =>
-              AuthProvider(authService),
+        // Servicio de Supabase (necesario para CardListViewModel)
+        Provider<SupabaseService>(
+          create: (_) => SupabaseService(),
         ),
-        // 3. Mantenemos tu CardListViewModel existente.
-        ChangeNotifierProvider(
+        // Repositorio de autenticación
+        Provider<AuthRepository>(
+          create: (context) => AuthRepository(context.read<AuthService>()),
+        ),
+        // ViewModel de autenticación
+        ChangeNotifierProvider<AuthViewModel>(
+          create: (context) => AuthViewModel(context.read<AuthRepository>()),
+        ),
+        // ViewModel para gestión de cartas
+        ChangeNotifierProvider<CardListViewModel>(
           create: (context) => CardListViewModel(),
+        ),
+        // ViewModel para cartas procesadas
+        ChangeNotifierProvider<ProcessedCardsViewModel>(
+          create: (context) => ProcessedCardsViewModel(),
         ),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         title: 'YuGiOh Card Manager',
-        theme: ThemeData.dark(),
-        // La app ahora arranca en la SplashScreen, que decide a dónde ir.
+        theme: AppTheme.darkTheme,
         home: const SplashScreen(),
       ),
     );

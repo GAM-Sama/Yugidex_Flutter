@@ -32,17 +32,40 @@ class UserCard {
     //   "acquired_date": "...",
     //   "Cartas": { ...objeto completo de la carta... }
     // }
+
+    // Validaciones básicas
+    if (json['id'] == null) {
+      throw Exception('Campo id es requerido en UserCard');
+    }
+
     return UserCard(
-      userCardId: json['id'] as String,
-      quantity: json['cantidad'] as int,
-      condition: json['condition'] as String,
-      notes: json['notes'] as String?,
+      userCardId: json['id']?.toString() ?? '',
+      quantity: json['cantidad'] as int? ?? 1,
+      condition: json['condition']?.toString() ?? 'mint',
+      notes: json['notes']?.toString(),
       acquiredDate: json['acquired_date'] != null
-          ? DateTime.parse(json['acquired_date'] as String)
+          ? DateTime.tryParse(json['acquired_date'].toString())
           : null,
       // Aquí está la magia: usamos el fromJson de tu modelo Card existente
       // para parsear el objeto anidado 'Cartas'.
-      cardDetails: Card.fromJson(json['Cartas'] as Map<String, dynamic>),
+      cardDetails: json['Cartas'] != null && json['Cartas'] is Map<String, dynamic>
+          ? (() {
+              try {
+                final card = Card.fromJson(json['Cartas'] as Map<String, dynamic>);
+                print('✅ Card creada exitosamente para: ${card.nombre ?? 'Sin nombre'}');
+                return card;
+              } catch (e) {
+                print('❌ Error creando Card desde Cartas: $e');
+                print('❌ Datos de Cartas que fallaron: ${json['Cartas']}');
+                // En lugar de devolver una Card vacía, vamos a devolver una con datos de respaldo
+                return Card.fromJson({});
+              }
+            })()
+          : (() {
+              print('❌ Cartas es null o inválido en UserCard.fromJson');
+              print('❌ Datos recibidos: $json');
+              return Card.fromJson({});
+            })(),
     );
   }
 }
