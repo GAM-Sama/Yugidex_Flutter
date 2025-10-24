@@ -1,21 +1,25 @@
+// lib/models/card_model.dart
+
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 @immutable
 class Card {
   final String idCarta;
-  final int cantidad;
+  final int cantidad; // Aunque este modelo es de 'Card', mantenemos 'cantidad' por si viene en el JSON base
   final String? nombre;
   final String? imagen;
   final String? marcoCarta;
   final String? tipo;
   final List<String>? subtipo;
   final String? atributo;
+  final String? clasificacion; // <-- ¡AÑADIDO AQUÍ!
   final Map<String, dynamic>? descripcion;
   final String? atk;
   final String? def;
   final int? nivelRankLink;
   final int? ratioEnlace;
+  final int? escalaPendulo;
   final List<String>? rareza;
   final String? setExpansion;
   final String? iconoCarta;
@@ -29,11 +33,13 @@ class Card {
     this.tipo,
     this.subtipo,
     this.atributo,
+    this.clasificacion, // <-- ¡AÑADIDO AQUÍ!
     this.descripcion,
     this.atk,
     this.def,
     this.nivelRankLink,
     this.ratioEnlace,
+    this.escalaPendulo,
     this.rareza,
     this.setExpansion,
     this.iconoCarta,
@@ -84,19 +90,25 @@ class Card {
 
     final card = Card(
       idCarta: json['ID_Carta']?.toString() ?? '',
-      cantidad: json['Cantidad'] as int? ?? 1,
+      // Mantenemos cantidad aquí por si el JSON base lo incluye, aunque UserCard lo sobrescribirá
+      cantidad: json['Cantidad'] as int? ?? 1, 
       nombre: safeString(json['Nombre']) ?? safeString(json['nombre']),
       imagen: safeString(json['Imagen']) ?? safeString(json['imagen']),
       marcoCarta: safeString(json['Marco_Carta']) ?? safeString(json['marco_carta']),
       tipo: safeString(json['Tipo']) ?? safeString(json['tipo']),
       subtipo: safeStringList(json['Subtipo']) ?? safeStringList(json['subtipo']),
       atributo: safeString(json['Atributo']) ?? safeString(json['atributo']),
+      // --- ¡AÑADIDO AQUÍ! ---
+      // Leemos 'Clasificacion' o 'clasificacion'
+      clasificacion: safeString(json['Clasificacion']) ?? safeString(json['clasificacion']),
+      // --- FIN DEL AÑADIDO ---
       descripcion: parseJsonMap(json['Descripcion']) ?? parseJsonMap(json['descripcion']) ??
-                   (json['Descripcion'] != null ? {'texto': json['Descripcion'].toString()} : null),
+                       (json['Descripcion'] != null ? {'texto': json['Descripcion'].toString()} : null),
       atk: safeString(json['ATK']) ?? safeString(json['atk']),
       def: safeString(json['DEF']) ?? safeString(json['def']),
       nivelRankLink: safeInt(json['Nivel_Rank_Link']) ?? safeInt(json['nivel_rank_link']) ?? safeInt(json['Nivel']) ?? safeInt(json['nivel']),
-      ratioEnlace: safeInt(json['ratio_enlace']) ?? safeInt(json['ratio_enlace']),
+      ratioEnlace: safeInt(json['ratio_enlace']) ?? safeInt(json['Ratio_Enlace']),
+      escalaPendulo: safeInt(json['escala_pendulo']) ?? safeInt(json['Escala_Pendulo']),
       rareza: safeStringList(json['Rareza']) ?? safeStringList(json['rareza']),
       setExpansion: safeString(json['Set_Expansion']) ?? safeString(json['set_expansion']),
       iconoCarta: safeString(json['Icono Carta']) ?? safeString(json['icono_carta']) ?? safeString(json['IconoCarta']),
@@ -106,13 +118,12 @@ class Card {
     print('=== CARD CREADA ===');
     print('Nombre: "${card.nombre}"');
     print('Tipo: "${card.tipo}"');
+    print('Clasificacion: "${card.clasificacion}"'); // <-- Debug añadido
     print('Subtipo: ${card.subtipo}');
     print('MarcoCarta: "${card.marcoCarta}"');
-    print('Descripcion: ${card.descripcion != null ? 'Cargada' : 'null'}');
-    print('ATK: "${card.atk}"');
-    print('DEF: "${card.def}"');
-    print('Nivel_Rank_Link: ${card.nivelRankLink}');
-    print('Ratio_Enlace: ${card.ratioEnlace}');
+    print('EscalaPendulo: ${card.escalaPendulo}');
+    print('RatioEnlace: ${card.ratioEnlace}');
+    // ... (resto de tus prints de debug) ...
     print('===================');
 
     return card;

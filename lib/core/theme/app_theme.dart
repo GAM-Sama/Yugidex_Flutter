@@ -1,38 +1,44 @@
+// lib/core/theme/app_theme.dart
+
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 /// Colores principales de la aplicación
 class AppColors {
-  // Colores principales azul oscuro
-  static const Color primary = Color(0xFF1E3A8A); // Azul oscuro profundo
-  static const Color primaryDark = Color(0xFF1E40AF); // Azul oscuro más intenso
-  static const Color primaryLight = Color(0xFF3B82F6); // Azul medio para hover/estados
+  // --- DEFINICIÓN DE COLORES (PALETA AZUL) ---
+  static const Color _scaffoldBg = Color(0xFF0A192F); // Azul marino muy oscuro
+  static const Color _cardBg = Color(0xFF172A46);     // Azul medianoche
+  static const Color _accentYellow = Color(0xFFFDE047); // Acento dorado
+  static const Color _textPrimary = Color(0xFFFFFFFF); // Texto blanco
+  static const Color _textSecondary = Color(0xFFA9B0BC); // Texto gris
+  static const Color _darkText = Color(0xFF0A192F); // Texto oscuro (para botones)
 
-  // Elementos seleccionados - Amarillo/Dorado
-  static const Color accent = Color(0xFFFFD700); // Dorado
-  static const Color accentDark = Color(0xFFFFB300); // Dorado más oscuro para hover
-  static const Color accentLight = Color(0xFFFFFF8C); // Dorado claro para estados
+  // Fondos y superficies
+  static const Color background = _scaffoldBg;
+  static const Color surface = _cardBg;
+  static const Color cardBackground = _cardBg;
+
+  // Textos
+  static const Color textPrimary = _textPrimary;
+  static const Color textSecondary = _textSecondary;
+  static const Color textDisabled = _textSecondary;
+  static const Color darkText = _darkText;
+
+  // Estados y overlays
+  static const Color loadingOverlay = Color(0x800A192F); // Con transparencia
+
+  // Bordes y divisores
+  static const Color border = Color(0xFF475569);
+  static const Color divider = Color(0xFF334155);
 
   // Estados de éxito y error
-  static const Color success = Color(0xFF10B981); // Verde esmeralda
+  static const Color success = Color(0xFF10B981); // Verde
   static const Color error = Color(0xFFEF4444); // Rojo
   static const Color warning = Color(0xFFF59E0B); // Ámbar
 
-  // Fondos y superficies azul oscuro
-  static const Color background = Color(0xFF0F172A); // Azul muy oscuro casi negro
-  static const Color surface = Color(0xFF1E293B); // Azul grisaceo oscuro
-  static const Color cardBackground = Color(0xFF334155); // Azul grisaceo medio
-
-  // Textos blancos
-  static const Color textPrimary = Color(0xFFFFFFFF); // Blanco puro
-  static const Color textSecondary = Color(0xFFE2E8F0); // Blanco grisaceo
-  static const Color textDisabled = Color(0xFF94A3B8); // Gris azulado claro
-
-  // Estados y overlays
-  static const Color loadingOverlay = Color(0x800F172A); // Azul oscuro con transparencia
-
-  // Bordes y divisores azul sutil
-  static const Color border = Color(0xFF475569); // Azul grisaceo para bordes
-  static const Color divider = Color(0xFF334155); // Azul grisaceo para divisores
+  // Colores principales
+  static const Color primary = _accentYellow;
+  static const Color accent = _accentYellow;
 }
 
 /// Espaciado consistente en toda la aplicación
@@ -59,22 +65,36 @@ class AppTextSizes {
 /// Configuración de tema personalizado para la aplicación
 class AppTheme {
   static ThemeData get darkTheme {
-    return ThemeData.dark().copyWith(
-      primaryColor: AppColors.primary,
+    return ThemeData(
+      brightness: Brightness.dark,
       scaffoldBackgroundColor: AppColors.background,
+      primaryColor: AppColors.primary,
       cardColor: AppColors.cardBackground,
 
-      // AppBar theme
-      appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.surface,
+      // Esquema de color global
+      colorScheme: const ColorScheme.dark(
+        primary: AppColors.primary,
+        secondary: AppColors.primary,
+        surface: AppColors.surface,
+        onPrimary: AppColors._darkText,
+        onSurface: AppColors.textPrimary, // Texto sobre superficies (tarjetas)
+      ),
+
+// AppBar theme
+      appBarTheme: AppBarTheme( // Quitamos el const para poder usar AppColors
+        backgroundColor: AppColors.surface, // Tu color de fondo actual
         elevation: 0,
         centerTitle: true,
-        titleTextStyle: TextStyle(
+        // --- ¡AÑADIDO AQUÍ! ---
+        scrolledUnderElevation: 0.0, // Evita que aparezca sombra al hacer scroll
+        surfaceTintColor: AppColors.surface, // Asegura que el tinte sea el mismo color
+        // --- FIN DEL AÑADIDO ---
+        titleTextStyle: GoogleFonts.poppins( // Usar GoogleFonts aquí también
           color: AppColors.textPrimary,
           fontSize: AppTextSizes.lg,
           fontWeight: FontWeight.bold,
         ),
-        iconTheme: IconThemeData(color: AppColors.textPrimary),
+        iconTheme: const IconThemeData(color: AppColors.textPrimary),
       ),
 
       // Card theme
@@ -90,15 +110,15 @@ class AppTheme {
       // Button themes
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: AppColors.textPrimary,
+          backgroundColor: AppColors.primary, // Fondo amarillo
+          foregroundColor: AppColors._darkText, // Texto oscuro
           elevation: 2,
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.lg,
             vertical: AppSpacing.md,
           ),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),
@@ -112,47 +132,66 @@ class AppTheme {
       // Input decoration theme
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.surface,
+        fillColor: AppColors.background, // Fondo principal (más oscuro)
+        hintStyle: GoogleFonts.poppins(color: AppColors.textSecondary),
+        prefixIconColor: AppColors.textSecondary,
+        contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none, // Sin borde
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: AppColors.border),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: AppColors.accent, width: 2),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.accent, width: 2), // Borde amarillo al enfocar
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: AppColors.error),
         ),
-        contentPadding: const EdgeInsets.all(AppSpacing.md),
-        hintStyle: TextStyle(color: AppColors.textDisabled),
-        labelStyle: TextStyle(color: AppColors.textSecondary),
       ),
 
       // Text themes
-      textTheme: const TextTheme(
-        titleLarge: TextStyle(
+      textTheme: TextTheme(
+        titleLarge: GoogleFonts.poppins(
           color: AppColors.textPrimary,
           fontSize: AppTextSizes.xl,
           fontWeight: FontWeight.bold,
         ),
-        titleMedium: TextStyle(
+        titleMedium: GoogleFonts.poppins(
           color: AppColors.textPrimary,
           fontSize: AppTextSizes.lg,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w500,
         ),
-        bodyLarge: TextStyle(
+        bodyLarge: GoogleFonts.poppins(
           color: AppColors.textPrimary,
           fontSize: AppTextSizes.md,
         ),
-        bodyMedium: TextStyle(
+        bodyMedium: GoogleFonts.poppins(
           color: AppColors.textSecondary,
           fontSize: AppTextSizes.sm,
+        ),
+        bodySmall: GoogleFonts.poppins(
+          color: AppColors.textSecondary,
+          fontSize: AppTextSizes.xs,
+        ),
+        displayMedium: GoogleFonts.poppins(
+          fontWeight: FontWeight.bold,
+          color: AppColors.textPrimary,
+          fontSize: 36,
+        ),
+        labelLarge: GoogleFonts.poppins(
+          fontWeight: FontWeight.w600,
+          color: AppColors._darkText,
+          fontSize: 16,
+        ),
+        labelSmall: GoogleFonts.poppins(
+          fontWeight: FontWeight.w600,
+          color: AppColors.textPrimary,
+          fontSize: AppTextSizes.xs,
         ),
       ),
 
@@ -163,15 +202,15 @@ class AppTheme {
 
       // Switch theme
       switchTheme: SwitchThemeData(
-        thumbColor: MaterialStateProperty.resolveWith<Color>((states) {
-          if (states.contains(MaterialState.selected)) {
+        thumbColor: WidgetStateProperty.resolveWith<Color>((states) { // <-- CAMBIO AQUÍ
+          if (states.contains(WidgetState.selected)) { // <-- CAMBIO AQUÍ
             return AppColors.accent;
           }
           return AppColors.textDisabled;
         }),
-        trackColor: MaterialStateProperty.resolveWith<Color>((states) {
-          if (states.contains(MaterialState.selected)) {
-            return AppColors.accent.withOpacity(0.5);
+        trackColor: WidgetStateProperty.resolveWith<Color>((states) { // <-- CAMBIO AQUÍ
+          if (states.contains(WidgetState.selected)) { // <-- CAMBIO AQUÍ
+            return AppColors.accent.withValues(alpha: 0.5);
           }
           return AppColors.border;
         }),
@@ -179,20 +218,20 @@ class AppTheme {
 
       // Checkbox theme
       checkboxTheme: CheckboxThemeData(
-        fillColor: MaterialStateProperty.resolveWith<Color>((states) {
-          if (states.contains(MaterialState.selected)) {
+        fillColor: WidgetStateProperty.resolveWith<Color>((states) { // <-- CAMBIO AQUÍ
+          if (states.contains(WidgetState.selected)) { // <-- CAMBIO AQUÍ
             return AppColors.accent;
           }
           return Colors.transparent;
         }),
-        checkColor: MaterialStateProperty.all(AppColors.background),
-        side: BorderSide(color: AppColors.border),
+        checkColor: WidgetStateProperty.all(AppColors.background), // <-- CAMBIO AQUÍ
+        side: const BorderSide(color: AppColors.border),
       ),
 
       // Radio theme
       radioTheme: RadioThemeData(
-        fillColor: MaterialStateProperty.resolveWith<Color>((states) {
-          if (states.contains(MaterialState.selected)) {
+        fillColor: WidgetStateProperty.resolveWith<Color>((states) { // <-- CAMBIO AQUÍ
+          if (states.contains(WidgetState.selected)) { // <-- CAMBIO AQUÍ
             return AppColors.accent;
           }
           return Colors.transparent;
@@ -204,6 +243,24 @@ class AppTheme {
         color: AppColors.divider,
         thickness: 1,
       ),
+
+      // --- ¡BONUS AÑADIDO! ---
+      // Dialog theme
+      dialogTheme: DialogTheme(
+        backgroundColor: AppColors.cardBackground, // Fondo de panel
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        titleTextStyle: GoogleFonts.poppins(
+          color: AppColors.textPrimary,
+          fontSize: AppTextSizes.lg,
+          fontWeight: FontWeight.bold,
+        ),
+        contentTextStyle: GoogleFonts.poppins(
+          color: AppColors.textSecondary,
+          fontSize: AppTextSizes.md,
+        ),
+      ),
     );
   }
 }
@@ -211,11 +268,6 @@ class AppTheme {
 /// Extensiones útiles para colores
 extension ColorExtension on Color {
   Color withOpacity(double opacity) {
-    return Color.fromRGBO(
-      red,
-      green,
-      blue,
-      opacity,
-    );
+    return withValues(alpha: opacity);
   }
 }

@@ -1,21 +1,21 @@
-# 🃏 YuGiOh Scanner App
+# Yu-Gi-Oh! Scanner App
 
-Aplicación móvil para escanear y gestionar cartas de Yu-Gi-Oh! utilizando reconocimiento óptico de caracteres (OCR) avanzado y procesamiento en la nube. La aplicación permite a los jugadores digitalizar rápidamente sus colecciones de cartas, obtener información detallada y gestionar su inventario de manera eficiente.
+Aplicación móvil desarrollada en Flutter para escanear y gestionar cartas de Yu-Gi-Oh! utilizando reconocimiento óptico de caracteres (OCR) avanzado y procesamiento en la nube. Esta herramienta permite a los jugadores digitalizar rápidamente sus colecciones de cartas, obtener información detallada y gestionar su inventario de manera eficiente.
 
-## 🚀 Características Principales
+## Características Principales
 
 - **Escaneo Avanzado**: Captura de códigos de serie y códigos de barras de cartas Yu-Gi-Oh!
-- **OCR de Alta Precisión**: Reconocimiento óptico de caracteres optimizado para cartas de juego
+- **OCR de Alta Precisión**: Reconocimiento óptico de caracteres optimizado específicamente para cartas de juego
 - **Base de Datos en Tiempo Real**: Sincronización con Supabase para respaldo en la nube
 - **Interfaz Inmersiva**: Diseño moderno con modo oscuro y orientación horizontal optimizada
 - **Procesamiento por Lotes**: Escaneo y procesamiento eficiente de múltiples cartas simultáneamente
-- **Seguimiento en Tiem Real**: Monitoreo del progreso de procesamiento con actualizaciones en directo
+- **Seguimiento en Tiempo Real**: Monitoreo del progreso de procesamiento con actualizaciones en directo
 - **Base de Datos Local**: Almacenamiento offline con sincronización automática cuando hay conexión
 - **Gestión de Colección**: Filtrado y búsqueda avanzada en tu colección de cartas
-- **Soporte Multilenguaje**: Interfaz disponible en múltiples idiomas
+- **Sistema de Autenticación**: Inicio de sesión y registro de usuarios
 - **Exportación de Datos**: Posibilidad de exportar tu colección en diferentes formatos
 
-## 🛠️ Tecnologías Utilizadas
+## Tecnologías Utilizadas
 
 - **Flutter** - Framework de desarrollo móvil multiplataforma
 - **Google ML Kit** - Motor de reconocimiento de texto (OCR) optimizado para móviles
@@ -25,9 +25,49 @@ Aplicación móvil para escanear y gestionar cartas de Yu-Gi-Oh! utilizando reco
 - **SQLite** - Almacenamiento local para funcionamiento offline
 - **Google ML Vision** - Procesamiento de imágenes en dispositivos móviles
 
-## 🔍 Funcionamiento del OCR
+## Estado Actual del Proyecto
 
-El sistema de reconocimiento óptico de caracteres (OCR) está optimizado específicamente para leer códigos de cartas de Yu-Gi-Oh! incluso en condiciones subóptimas. Aquí te explicamos cómo funciona:
+### Cambios Recientes y Mejoras
+
+#### 🎨 Cambios Visuales y de UI (v2.0)
+
+**Interfaz del Escáner Rediseñada:**
+- **Eliminación de dependencias de tema complejo**: Se removieron las importaciones de `AppTheme`, `AppColors`, y `AppSpacing` para simplificar la interfaz
+- **Esquema de colores simplificado**: Se adoptó un esquema de colores directo con valores hardcoded para mayor legibilidad y mantenimiento
+- **Colores utilizados**:
+  - Azul primario: `Colors.blueAccent[100]` para títulos
+  - Amarillo acento: `Colors.yellowAccent` para elementos destacados (círculo de enfoque)
+  - Blanco/Negro: Para textos y fondos de elementos de UI
+  - Gris: Para botones secundarios y elementos menos prominentes
+
+**Elementos de UI actualizados:**
+- **Contador de cartas**: Fondo negro con texto blanco para mejor contraste
+- **Botón de flash**: Fondo negro semi-transparente con icono blanco
+- **Texto de feedback**: Fondo negro semi-transparente con texto blanco
+- **Control deslizante de zoom**: Colores blancos para mejor visibilidad
+- **Botones de acción**:
+  - **Cancelar**: Fondo gris oscuro con texto blanco
+  - **Escanear**: Fondo azul con texto blanco (tamaño aumentado)
+  - **Enviar**: Fondo gris oscuro con texto blanco
+
+#### 🔧 Correcciones Técnicas
+
+**Solución del problema de enfoque de cámara:**
+- **Problema identificado**: El getter `isFocusPointSupported` no estaba definido para el tipo `CameraValue` en la versión 0.11.0 del paquete `camera`
+- **Solución implementada**:
+  - Eliminación de la verificación `isFocusPointSupported` problemática
+  - Simplificación de la función `_onFocusTap` para usar llamadas directas a `setFocusPoint` y `setExposurePoint`
+  - Implementación de manejo de errores robusto con bloques try-catch
+  - Enfoque en la funcionalidad básica que funciona en todos los dispositivos
+
+**Mejoras de inicialización de cámara:**
+- Simplificación del proceso de inicialización con resolución de fallback automática
+- Mejor manejo de errores de cámara con mensajes más informativos
+- Eliminación de verificaciones redundantes del estado de la cámara
+
+## Funcionamiento del OCR
+
+El sistema de reconocimiento óptico de caracteres (OCR) está optimizado específicamente para leer códigos de cartas de Yu-Gi-Oh! incluso en condiciones subóptimas.
 
 ### Características del OCR
 
@@ -95,54 +135,111 @@ static Future<String?> extractCardCode(String text) async {
 - **Procesamiento por Lotes**: Múltiples códigos se procesan eficientemente
 - **Validación en Dos Pasos**: Primero patrones simples, luego validación contra la base de datos
 
-## 📱 Pantallas Principales
+## Pantallas Principales
 
-1. **Inicio** - Menú principal con opciones para escanear nuevas cartas o ver la colección
-2. **Escáner** - Interfaz de cámara para escanear códigos de cartas
-3. **Procesando** - Muestra el progreso del escaneo y procesamiento
-4. **Nuevas Cartas** - Muestra las cartas recién escaneadas
-5. **Lista de Cartas** - Muestra todas las cartas guardadas en la colección
+1. **Splash Screen** - Pantalla de carga inicial
+2. **Inicio** - Menú principal con opciones para escanear nuevas cartas o ver la colección
+3. **Autenticación** - Pantallas de inicio de sesión y registro
+4. **Escáner** - Interfaz de cámara para escanear códigos de cartas (rediseñada)
+5. **Procesando** - Muestra el progreso del escaneo y procesamiento
+6. **Nuevas Cartas** - Muestra las cartas recién escaneadas
+7. **Lista de Cartas** - Muestra todas las cartas guardadas en la colección
+8. **Perfil** - Gestión de cuenta de usuario
 
-## 🏗️ Estructura del Proyecto
+## Estructura del Proyecto
 
 ```
-lib/
-├── main.dart              # Punto de entrada de la aplicación
-├── models/               # Modelos de datos
-│   ├── card_model.dart
-│   └── scanned_card_data.dart
-├── screens/              # Pantallas de la aplicación
-│   ├── home_screen.dart
-│   ├── card_code_scanner_screen.dart
-│   ├── processing_screen.dart
-│   ├── new_cards_list_screen.dart
-│   └── card_list_screen.dart
-├── services/             # Servicios externos
-│   ├── ocr_service.dart
-│   ├── supabase_service.dart
-│   └── webhook_service.dart
-├── utils/                # Utilidades y constantes
-│   └── utils/
-│       └── card_constants.dart
-└── view_models/          # Lógica de negocio
-    ├── card_scanner_view_model.dart
-    └── card_list_view_model.dart
+yugioh_scanner/
+├── android/                  # Configuración específica de Android
+├── ios/                      # Configuración específica de iOS
+├── lib/                      # Código fuente principal
+│   ├── main.dart             # Punto de entrada de la aplicación
+│   ├── core/                 # Núcleo de la aplicación
+│   │   ├── theme/            # Temas y estilos (parcialmente utilizado)
+│   │   │   └── app_theme.dart
+│   │   └── utils/            # Utilidades del núcleo
+│   │       └── base_view_model.dart
+│   ├── features/             # Características organizadas por módulos
+│   │   └── auth/             # Módulo de autenticación
+│   │       ├── data/         # Capa de datos
+│   │       │   ├── repositories/
+│   │       │   │   └── auth_repository.dart
+│   │       │   └── services/
+│   │       │       └── auth_service.dart
+│   │       └── presentation/ # Capa de presentación
+│   │           └── view_models/
+│   ├── models/               # Modelos de datos
+│   │   ├── card_model.dart
+│   │   ├── scanned_card_data.dart
+│   │   └── user_card_model.dart
+│   ├── providers/            # Proveedores de estado global
+│   │   └── auth_provider.dart
+│   ├── screens/              # Pantallas de la aplicación
+│   │   ├── auth/             # Pantallas de autenticación
+│   │   │   ├── login_screen.dart
+│   │   │   └── register_screen.dart
+│   │   ├── card_code_scanner_screen.dart (rediseñada)
+│   │   ├── card_list_screen.dart
+│   │   ├── home_screen.dart
+│   │   ├── new_cards_list_screen.dart
+│   │   ├── processing_screen.dart
+│   │   ├── profile_screen.dart
+│   │   └── splash_screen.dart
+│   ├── services/             # Servicios externos
+│   │   ├── auth_service.dart
+│   │   ├── ocr_service.dart
+│   │   ├── supabase_service.dart
+│   │   └── webhook_service.dart
+│   ├── shared/               # Código compartido
+│   │   ├── repositories/     # Repositorios compartidos
+│   │   │   └── card_repository.dart
+│   │   └── widgets/          # Widgets reutilizables
+│   │       └── common_widgets.dart
+│   ├── utils/                # Utilidades generales
+│   │   └── utils/
+│   │       └── card_constants.dart
+│   └── view_models/          # ViewModels específicos
+│       ├── card_list_view_model.dart
+│       ├── card_scanner_view_model.dart
+│       └── processed_cards_view_model.dart
+├── linux/                    # Configuración específica de Linux
+├── macos/                    # Configuración específica de macOS
+├── test/                     # Pruebas unitarias
+├── web/                      # Configuración específica de Web
+├── windows/                  # Configuración específica de Windows
+├── .env                      # Variables de entorno
+├── .gitignore               # Archivos ignorados por Git
+├── analysis_options.yaml    # Configuración de análisis de código
+├── pubspec.yaml             # Dependencias del proyecto (camera: ^0.11.0)
+└── README.md                # Este archivo
 ```
 
-## ⚙️ Configuración
+## Configuración
 
-1. Clona el repositorio
+1. Clona el repositorio:
+   ```bash
+   git clone <url_del_repositorio>
+   cd yugioh_scanner
+   ```
+
 2. Instala las dependencias:
    ```bash
    flutter pub get
    ```
-3. Configura las variables de entorno necesarias (ver `.env.example`)
+
+3. Configura las variables de entorno necesarias creando un archivo `.env` en la raíz del proyecto con el siguiente contenido:
+   ```
+   SUPABASE_URL=tu_url_de_supabase
+   SUPABASE_KEY=tu_clave_de_supabase
+   WEBHOOK_URL=url_de_tu_webhook
+   ```
+
 4. Ejecuta la aplicación:
    ```bash
    flutter run
    ```
 
-## 📦 Dependencias Principales
+## Dependencias Principales
 
 ### Core
 - `flutter`: ^3.16.0
@@ -150,7 +247,7 @@ lib/
 
 ### Reconocimiento de Imágenes
 - `google_mlkit_text_recognition`: ^0.11.0 - Motor de OCR de Google ML Kit
-- `camera`: ^0.10.5+2 - Acceso a la cámara del dispositivo
+- `camera`: ^0.11.0 - Acceso a la cámara del dispositivo (actualizada para corrección de enfoque)
 - `image_picker`: ^1.0.7 - Selección de imágenes de la galería
 
 ### Base de Datos y Almacenamiento
@@ -173,17 +270,7 @@ lib/
 - `path_provider`: ^2.1.1 - Manejo de rutas del sistema
 - `url_launcher`: ^6.1.14 - Apertura de enlaces externos
 
-## 🔒 Variables de Entorno
-
-Crea un archivo `.env` en la raíz del proyecto con las siguientes variables:
-
-```
-SUPABASE_URL=tu_url_de_supabase
-SUPABASE_KEY=tu_clave_de_supabase
-WEBHOOK_URL=url_de_tu_webhook
-```
-
-## 🚀 Rendimiento y Optimización
+## Rendimiento y Optimización
 
 ### Técnicas de Optimización
 
@@ -224,21 +311,39 @@ WEBHOOK_URL=url_de_tu_webhook
    - Limpia la lente de la cámara
 
 2. **Reconocimiento lento**:
-   Cierra otras aplicaciones en segundo plano
-   Reinicia la aplicación si ha estado en uso prolongado
+   - Cierra otras aplicaciones en segundo plano
+   - Reinicia la aplicación si ha estado en uso prolongado
 
 3. **Errores de conexión**:
-   Verifica tu conexión a Internet
-   La aplicación funciona en modo offline con funcionalidad limitada
+   - Verifica tu conexión a Internet
+   - La aplicación funciona en modo offline con funcionalidad limitada
 
-## 📄 Licencia
+4. **Problemas de enfoque de cámara**:
+   - La aplicación ahora maneja automáticamente diferentes capacidades de cámara
+   - Si persisten problemas, reinicia la aplicación
 
-Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más detalles.
+## Historial de Versiones
 
-## ✨ Contribuciones
+### v2.0 - Cambios Visuales y Correcciones Técnicas
+- ✅ Rediseño completo de la interfaz del escáner
+- ✅ Corrección del problema de enfoque de cámara (`isFocusPointSupported`)
+- ✅ Simplificación del código y eliminación de dependencias complejas
+- ✅ Mejora en el manejo de errores de inicialización de cámara
+
+### v1.0 - Versión Inicial
+- ✅ Implementación básica del escáner de cartas
+- ✅ Sistema de OCR funcional
+- ✅ Integración con Supabase
+- ✅ Autenticación de usuarios
+
+## Licencia
+
+Este proyecto está bajo la Licencia MIT. Consulta el archivo `LICENSE` para más detalles.
+
+## Contribuciones
 
 Las contribuciones son bienvenidas. Por favor, lee las pautas de contribución antes de enviar un pull request.
 
 ---
 
-Desarrollado con ❤️ para los amantes de Yu-Gi-Oh!
+Desarrollado con dedicación para los amantes de Yu-Gi-Oh!.

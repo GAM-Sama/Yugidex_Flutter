@@ -1,23 +1,24 @@
 import 'package:flutter/material.dart' hide Card;
-import '../models/card_model.dart';
 import '../models/user_card_model.dart';
 import '../services/supabase_service.dart';
 
 class CardListViewModel extends ChangeNotifier {
   SupabaseService? _supabaseService;
 
-  List<UserCard> _userCards = [];
+  List<UserCard> _cards = []; // Renombrado de _userCards
   UserCard? _selectedCard;
   bool _isLoading = false;
   String? _errorMessage;
 
-  List<UserCard> get userCards => _userCards;
+  // --- ¡CAMBIO IMPORTANTE! ---
+  // Este es ahora el getter principal. Devuelve la lista CON cantidades.
+  List<UserCard> get cards => _cards;
+
   UserCard? get selectedCard => _selectedCard;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  // Computed property to get cards for backward compatibility
-  List<Card> get cards => _userCards.map((userCard) => userCard.cardDetails).toList();
+  // El getter antiguo 'List<Card> get cards' se ha eliminado.
 
   // Método para inicializar con SupabaseService del Provider
   void initialize(SupabaseService supabaseService) {
@@ -37,10 +38,10 @@ class CardListViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _userCards = await _supabaseService!.getMyCardCollection();
+      _cards = await _supabaseService!.getMyCardCollection(); // Carga en _cards
 
-      if (_userCards.isNotEmpty) {
-        _selectedCard = _userCards.first;
+      if (_cards.isNotEmpty) {
+        _selectedCard = _cards.first;
       } else {
         _selectedCard = null;
       }
@@ -67,11 +68,11 @@ class CardListViewModel extends ChangeNotifier {
 
     try {
       // Usamos el método que ya añadimos al SupabaseService
-      _userCards = await _supabaseService!.getMyCardsByJobId(jobId);
+      _cards = await _supabaseService!.getMyCardsByJobId(jobId); // Carga en _cards
 
-      if (_userCards.isNotEmpty) {
+      if (_cards.isNotEmpty) {
         // Seleccionamos la primera carta de la lista por defecto
-        _selectedCard = _userCards.first;
+        _selectedCard = _cards.first;
       } else {
         _selectedCard = null;
       }
@@ -97,20 +98,20 @@ class CardListViewModel extends ChangeNotifier {
 
     try {
       // Obtenemos todas las cartas procesadas en el lote
-      final cards = await _supabaseService!.getCardsByJobId(jobId);
+      final cardDetailsList = await _supabaseService!.getCardsByJobId(jobId);
 
-      if (cards.isNotEmpty) {
+      if (cardDetailsList.isNotEmpty) {
         // Crear UserCards temporales para mostrar las cartas procesadas
-        _userCards = cards.map((card) => UserCard(
-          userCardId: 'temp_${card.idCarta}',
-          quantity: 1,
-          condition: 'mint',
-          notes: null,
-          acquiredDate: DateTime.now(),
-          cardDetails: card,
-        )).toList();
+        _cards = cardDetailsList.map((card) => UserCard( // Carga en _cards
+              userCardId: 'temp_${card.idCarta}',
+              quantity: 1, // Asumimos 1 ya que son solo los resultados
+              condition: 'mint',
+              notes: null,
+              acquiredDate: DateTime.now(),
+              cardDetails: card,
+            )).toList();
 
-        _selectedCard = _userCards.first;
+        _selectedCard = _cards.first;
       } else {
         _selectedCard = null;
       }
@@ -122,12 +123,10 @@ class CardListViewModel extends ChangeNotifier {
     }
   }
 
-  void selectCard(Card card) {
-    // Find the corresponding UserCard for this card
-    final userCard = _userCards.where((userCard) => userCard.cardDetails.idCarta == card.idCarta).firstOrNull;
-    if (userCard != null) {
-      _selectedCard = userCard;
-      notifyListeners();
-    }
+  // --- ¡CAMBIO IMPORTANTE! ---
+  // 'selectCard' ahora acepta un UserCard directamente.
+  void selectCard(UserCard userCard) {
+    _selectedCard = userCard;
+    notifyListeners();
   }
 }

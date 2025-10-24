@@ -1,19 +1,20 @@
-import 'package:flutter/material.dart' hide Card;
+import 'package:flutter/material.dart' hide Card; // Avoid conflict if Card model exists
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
-import '../core/theme/app_theme.dart';
-import '../models/card_model.dart';
-import '../models/user_card_model.dart';
-import '../services/supabase_service.dart';
-import '../view_models/card_list_view_model.dart';
 
-// Clase auxiliar para devolver un par de colores (fondo y texto)
-class CardFrameColors {
-  final Color backgroundColor;
-  final Color textColor;
-  CardFrameColors(this.backgroundColor, this.textColor);
-}
+// --- Make sure these imports are correct based on your project structure ---
+import 'package:yugioh_scanner/shared/widgets/card_detail_panel.dart';
+import 'package:yugioh_scanner/shared/widgets/collection_toolbar.dart';
+import 'package:yugioh_scanner/shared/widgets/filters_dialog.dart';
+import 'package:yugioh_scanner/core/theme/app_theme.dart';
+import 'package:yugioh_scanner/services/supabase_service.dart'; // Mantengo el import aunque no se use directamente aquí
+import 'package:yugioh_scanner/view_models/card_list_view_model.dart';
+import 'package:yugioh_scanner/view_models/card_filters_view_model.dart';
+import 'package:yugioh_scanner/models/card_filters.dart'; // Imports SortBy/SortDirection/CardFilters
+import 'package:yugioh_scanner/models/user_card_model.dart'; // Imports UserCardModel
+import 'package:yugioh_scanner/models/card_model.dart'; // Imports your 'Card' class
+// --- End of imports ---
 
 class CardListScreen extends StatefulWidget {
   const CardListScreen({super.key});
@@ -24,18 +25,15 @@ class CardListScreen extends StatefulWidget {
 
 class _CardListScreenState extends State<CardListScreen> {
   final TextEditingController _searchController = TextEditingController();
-  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final cardListViewModel = Provider.of<CardListViewModel>(
-        context,
-        listen: false,
-      );
-      cardListViewModel.initialize(Provider.of<SupabaseService>(context, listen: false));
-      cardListViewModel.fetchCards();
+      final cardListVM = Provider.of<CardListViewModel>(context, listen: false);
+      // Ensure initialize takes SupabaseService if needed by your ViewModel implementation
+      // cardListVM.initialize(Provider.of<SupabaseService>(context, listen: false));
+      cardListVM.fetchCards(); // Fetch cards on init
     });
   }
 
@@ -45,556 +43,469 @@ class _CardListScreenState extends State<CardListScreen> {
     super.dispose();
   }
 
-  // --- FUNCIÓN PARA OBTENER LOS COLORES DE LA CARTA ---
-  CardFrameColors _getCardFrameColors(Card card) {
-    // Primero intentar usar marcoCarta para determinar el tipo
-    String? cardType;
-    if (card.marcoCarta != null) {
-      final marcoLower = card.marcoCarta!.toLowerCase();
-      if (marcoLower.contains('monstruo') || marcoLower.contains('monster')) {
-        cardType = 'monstruo';
-      } else if (marcoLower.contains('magia') || marcoLower.contains('spell')) {
-        cardType = 'magia';
-      } else if (marcoLower.contains('trampa') || marcoLower.contains('trap')) {
-        cardType = 'trampa';
+  // --- HELPER FUNCTION FOR SORTING BY CARD TYPE (Sin cambios) ---
+  String _getCardSortValue(Card card) {
+    const Map<String, int> typeOrder = {'Monster': 1, 'Spell': 2, 'Trap': 3};
+    const Map<String, int> monsterSubtypeOrder = {
+      'Fusion': 1, 'Synchro': 2, 'Xyz': 3, 'Link': 4, 'Pendulum': 5,
+      'Ritual': 6, 'Effect': 7, 'Normal': 8, 'Tuner': 9, 'Flip': 10,
+      'Gemini': 11, 'Spirit': 12, 'Toon': 13, 'Union': 14
+    };
+    const Map<String, int> spellTrapOrder = {
+      'Normal': 1, 'Continuous': 2, 'Equip': 3, 'Quick-Play': 4,
+      'Field': 5, 'Ritual': 6, 'Counter': 7
+    };
+
+    final int primary = typeOrder[card.marcoCarta ?? ''] ?? 99;
+
+    // Detección mejorada de tipos especiales usando múltiples campos (igual que en panel de detalles)
+    String? getDetectedMonsterType() {
+      final marcoLower = card.marcoCarta?.toLowerCase() ?? '';
+      final tipoLower = card.tipo?.toLowerCase() ?? '';
+      final subtypesLower = (card.subtipo ?? []).map((s) => s.toLowerCase()).toList();
+
+      // Detectar tipos especiales
+      if (marcoLower.contains('link') || tipoLower.contains('link') || subtypesLower.contains('link')) {
+        return 'Link';
       }
-    }
-
-    // Si no tenemos marcoCarta o no coincide, usar el tipo como fallback
-    if (cardType == null && card.tipo != null) {
-      final tipoLower = card.tipo!.toLowerCase();
-      if (tipoLower.contains('monstruo') || tipoLower.contains('monster')) {
-        cardType = 'monstruo';
-      } else if (tipoLower.contains('magia') || tipoLower.contains('spell')) {
-        cardType = 'magia';
-      } else if (tipoLower.contains('trampa') || tipoLower.contains('trap')) {
-        cardType = 'trampa';
+      if (marcoLower.contains('xyz') || tipoLower.contains('xyz') || subtypesLower.contains('xyz')) {
+        return 'Xyz';
       }
-    }
-
-    // Primero, buscamos en los subtipos, que son más específicos (Fusion, Xyz, etc.)
-    final subtypes = (card.subtipo ?? []).map((s) => s.toLowerCase()).toList();
-
-    // Prioridad para monstruos de efecto y normales si están en subtipos
-    if (subtypes.contains('normal')) return CardFrameColors(const Color(0xFFFDE68A), Colors.black); // Amarillo
-    if (subtypes.contains('efecto') || subtypes.contains('effect')) return CardFrameColors(const Color(0xFFC07B41), Colors.white); // Marrón anaranjado
-
-    // Resto de subtipos
-    for (var subtype in subtypes) {
-      switch (subtype) {
-        case 'fusión':
-        case 'fusion':
-          return CardFrameColors(const Color(0xFFA086B7), Colors.white); // Lila
-        case 'xyz':
-          return CardFrameColors(const Color(0xFF222222), Colors.white); // Negro
-        case 'sincronía':
-        case 'synchro':
-          return CardFrameColors(const Color(0xFFF0F0F0), Colors.black); // Blanco
-        case 'link':
-          return CardFrameColors(const Color(0xFF0077CC), Colors.white); // Azul oscuro
-        case 'ritual':
-          return CardFrameColors(const Color(0xFF9DB5CC), Colors.white); // Azul claro
+      if (marcoLower.contains('pendulum') || tipoLower.contains('pendulum') || subtypesLower.contains('pendulum')) {
+        return 'Pendulum';
       }
+      if (marcoLower.contains('fusion') || tipoLower.contains('fusion') || subtypesLower.contains('fusion') || subtypesLower.contains('fusión')) {
+        return 'Fusion';
+      }
+      if (marcoLower.contains('synchro') || tipoLower.contains('synchro') || subtypesLower.contains('synchro')) {
+        return 'Synchro';
+      }
+      if (marcoLower.contains('ritual') || tipoLower.contains('ritual') || subtypesLower.contains('ritual')) {
+        return 'Ritual';
+      }
+
+      // Si no es tipo especial, usar subtipo o clasificación original
+      if (card.subtipo?.isNotEmpty == true) {
+        return card.subtipo![0];
+      }
+      return card.clasificacion;
     }
 
-    // Si no se encuentra un subtipo de monstruo, usamos el tipo principal (Magia, Trampa, Monstruo)
-    switch (cardType) {
-      case 'magia':
-      case 'spell':
-      case 'spell card':
-      case 'magic':
-        return CardFrameColors(const Color(0xFF1D9E74), Colors.white); // Verde
-      case 'trampa':
-      case 'trap':
-      case 'trap card':
-        return CardFrameColors(const Color(0xFFBC5A84), Colors.white); // Rosáceo
-      case 'monstruo':
-      case 'monster':
-        // Para monstruos sin subtipo específico, usar color genérico
-        return CardFrameColors(const Color(0xFF6B5B95), Colors.white); // Púrpura genérico
+    int secondary = 99;
+    if (card.marcoCarta == 'Monster') {
+      final detectedType = getDetectedMonsterType();
+      if (detectedType != null && monsterSubtypeOrder.containsKey(detectedType)) {
+        secondary = monsterSubtypeOrder[detectedType]!;
+      } else if (card.clasificacion != null && monsterSubtypeOrder.containsKey(card.clasificacion)) {
+         secondary = monsterSubtypeOrder[card.clasificacion!]!;
+      }
+    } else if (card.clasificacion != null && spellTrapOrder.containsKey(card.clasificacion)) {
+      secondary = spellTrapOrder[card.clasificacion!]!;
     }
-
-    // Color por defecto si no coincide nada
-    return CardFrameColors(Colors.grey.shade700, Colors.white);
+    return '${primary.toString().padLeft(2, '0')}-${secondary.toString().padLeft(2, '0')}';
   }
-
+  // --- END OF HELPER FUNCTION ---
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Consumer<CardListViewModel>(
-          builder: (context, viewModel, child) {
-            final filteredCards = _searchQuery.isEmpty
-                ? viewModel.cards
-                : viewModel.cards.where((card) =>
-                    card.nombre?.toLowerCase().contains(_searchQuery) == true ||
-                    card.idCarta.toLowerCase().contains(_searchQuery)).toList();
-            
-            if (viewModel.isLoading) {
-              return Center(child: CircularProgressIndicator(color: AppColors.primary));
-            }
+    final theme = Theme.of(context);
 
-            if (viewModel.errorMessage != null) {
-              return Center(child: Text('Error: ${viewModel.errorMessage}'));
-            }
+    return ChangeNotifierProvider(
+      create: (_) => CardFiltersViewModel(),
+      child: Consumer2<CardListViewModel, CardFiltersViewModel>(
+        builder: (context, cardVM, filterVM, _) {
+          final processedCards = _applyFilters(cardVM, filterVM);
 
-            return Row(
-              children: [
-                _buildLeftPanel(viewModel.selectedCard),
-                Container(width: 1, color: AppColors.surface),
-                _buildRightPanelWithSearch(viewModel, filteredCards),
-              ],
+          if (cardVM.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (cardVM.errorMessage != null) {
+            return Center(
+              child: Text(
+                'Error: ${cardVM.errorMessage}',
+                style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.error),
+              ),
             );
-          },
-        ),
-      ),
-    );
-  }
+          }
 
-  Widget _buildLeftPanel(UserCard? selectedCard) {
-    return Expanded(
-      flex: 3,
-      child: Container(
-        color: AppColors.cardBackground,
-        padding: const EdgeInsets.all(16.0),
-        child: selectedCard == null
-            ? Center(child: Text('Selecciona una carta', style: TextStyle(color: AppColors.textSecondary)))
-            : SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      selectedCard.cardDetails.nombre ?? 'Sin nombre',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildTagsSection(selectedCard.cardDetails),
-                    const SizedBox(height: 12),
-                    Center(
-                      child: Container(
-                        constraints: const BoxConstraints(maxWidth: 150, maxHeight: 208),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: selectedCard.cardDetails.imagen != null
-                            ? CachedNetworkImage(
-                                imageUrl: selectedCard.cardDetails.imagen ?? '',
-                                fit: BoxFit.contain,
-                                placeholder: (context, url) => Container(color: AppColors.surface),
-                                errorWidget: (context, url, error) => const Icon(Icons.broken_image_outlined),
-                              )
-                            : Container(color: AppColors.surface),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildCardSpecificDetails(selectedCard.cardDetails),
-                    const SizedBox(height: 16),
-                    // Set de expansión - SIEMPRE visible
-                    if (selectedCard.cardDetails.setExpansion != null && selectedCard.cardDetails.setExpansion!.isNotEmpty)
-                      _buildDetailRow('Set:', selectedCard.cardDetails.setExpansion),
-                    const SizedBox(height: 16),
-                    // Descripción - SIEMPRE visible abajo del todo
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+          return Scaffold(
+            backgroundColor: theme.scaffoldBackgroundColor,
+            body: SafeArea(
+              child: Row(
+                children: [
+                  CardDetailPanel(
+                    cardDetails: cardVM.selectedCard?.cardDetails,
+                    isUserCollection: true,
+                  ),
+
+                  Container(width: 1, color: theme.dividerColor),
+
+                  Expanded(
+                    flex: 5,
+                    child: Column(
                       children: [
-                        Text(
-                          'Descripción:',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: AppColors.textPrimary,
-                          ),
+                        CollectionToolbar(
+                          searchController: _searchController,
+                          searchText: filterVM.filters.search,
+                          onSearchChanged: (value) => filterVM.updateFilter('search', value),
+                          onSortPressed: () => _showSortDialog(context, filterVM),
+                          onFilterPressed: () => _showFilterDialog(context, filterVM),
+                          sortBy: filterVM.sortBy,
+                          sortDirection: filterVM.sortDirection,
+                          activeFilterCount: _getActiveFiltersCount(filterVM),
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _getDescriptionText(selectedCard.cardDetails.descripcion),
-                          softWrap: true,
-                          style: TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
+                        Expanded(
+                          child: processedCards.isEmpty
+                              ? Center(
+                                  child: Text(
+                                    filterVM.filters.search.isEmpty && _getActiveFiltersCount(filterVM) == 0
+                                        ? 'Tu colección está vacía'
+                                        : 'No se encontraron cartas con esos filtros',
+                                    style: theme.textTheme.bodyMedium,
+                                  ),
+                                )
+                              : AnimationLimiter(
+                                  child: GridView.builder(
+                                    padding: const EdgeInsets.all(AppSpacing.md),
+                                    gridDelegate:
+                                        const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 6,
+                                      crossAxisSpacing: AppSpacing.sm,
+                                      mainAxisSpacing: AppSpacing.sm,
+                                      childAspectRatio: 0.70,
+                                    ),
+                                    itemCount: processedCards.length,
+                                    itemBuilder: (context, index) {
+                                      final userCard = processedCards[index];
+                                      final Card card = userCard.cardDetails;
+                                      final bool isSelected = cardVM.selectedCard?.cardDetails.idCarta == card.idCarta;
+
+                                      return AnimationConfiguration.staggeredGrid(
+                                        position: index,
+                                        duration: const Duration(milliseconds: 375),
+                                        columnCount: 6,
+                                        child: ScaleAnimation(
+                                          child: FadeInAnimation(
+                                            child: GestureDetector(
+                                              onTap: () => cardVM.selectCard(userCard),
+                                              child: Container(
+                                                decoration: BoxDecoration(
+                                                  borderRadius: BorderRadius.circular(AppSpacing.sm),
+                                                  border: Border.all(
+                                                    color: isSelected
+                                                        ? AppColors.primary
+                                                        : Colors.transparent,
+                                                    width: 2.5,
+                                                  ),
+                                                ),
+                                                child: ClipRRect(
+                                                  borderRadius: BorderRadius.circular(AppSpacing.xs),
+                                                  child: CachedNetworkImage(
+                                                    imageUrl: card.imagen ?? '',
+                                                    fit: BoxFit.cover,
+                                                    placeholder: (c, u) =>
+                                                        Container(color: theme.colorScheme.surface),
+                                                    errorWidget: (c, u, e) {
+                                                      // Si la carta no tiene nombre (es fallida) o no tiene imagen, mostrar back-card.png
+                                                      if (card.nombre == null || card.nombre!.isEmpty || card.imagen == null || card.imagen!.isEmpty) {
+                                                        return Image.asset(
+                                                          'lib/assets/back-card.png',
+                                                          fit: BoxFit.cover,
+                                                        );
+                                                      }
+                                                      // Si hay error de carga pero la carta es válida, mostrar back-card.png en lugar del icono de error
+                                                      return Image.asset(
+                                                        'lib/assets/back-card.png',
+                                                        fit: BoxFit.cover,
+                                                      );
+                                                    },
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
                         ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-      ),
-    );
-  }
-
-  Widget _buildRightPanelWithSearch(CardListViewModel viewModel, List<Card> filteredCards) {
-    const int columnCount = 6;
-    return Expanded(
-      flex: 5,
-      child: Column(
-        children: [
-          Container(
-            color: AppColors.surface,
-            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
-                  onPressed: () => Navigator.of(context).pop(),
-                  tooltip: 'Volver',
-                ),
-                Expanded(
-                  child: SizedBox(
-                    height: 40,
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: 'Buscar cartas...',
-                        prefixIcon: const Icon(Icons.search, size: 20),
-                        filled: true,
-                        fillColor: AppColors.background,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(20),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                      onChanged: (value) {
-                        setState(() { _searchQuery = value.toLowerCase(); });
-                      },
-                    ),
-                  ),
-                ),
-                IconButton(icon: Icon(Icons.sort, color: AppColors.textPrimary), onPressed: _showSortDialog, tooltip: 'Ordenar'),
-                IconButton(icon: Icon(Icons.filter_list, color: AppColors.textPrimary), onPressed: _showFilterDialog, tooltip: 'Filtros'),
-              ],
             ),
-          ),
-          Expanded(
-            child: filteredCards.isEmpty
-                ? Center(child: Text(_searchQuery.isEmpty ? 'Tu colección está vacía' : 'No se encontraron cartas'))
-                : AnimationLimiter(
-                    child: GridView.builder(
-                      padding: const EdgeInsets.all(16.0),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: columnCount,
-                        crossAxisSpacing: 8,
-                        mainAxisSpacing: 8,
-                        childAspectRatio: 0.72,
-                      ),
-                      itemCount: filteredCards.length,
-                      itemBuilder: (context, index) {
-                        final card = filteredCards[index];
-                        return AnimationConfiguration.staggeredGrid(
-                          position: index,
-                          duration: const Duration(milliseconds: 375),
-                          columnCount: columnCount,
-                          child: ScaleAnimation(
-                            child: FadeInAnimation(
-                              child: GestureDetector(
-                                onTap: () => viewModel.selectCard(card),
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: viewModel.selectedCard?.cardDetails.idCarta == card.idCarta
-                                          ? AppColors.accent
-                                          : Colors.transparent,
-                                      width: 2,
-                                    ),
-                                  ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(6.0),
-                                    child: CachedNetworkImage(
-                                      imageUrl: card.imagen ?? '',
-                                      fit: BoxFit.cover,
-                                      placeholder: (c, u) => Container(color: AppColors.surface),
-                                      errorWidget: (c, u, e) => const Icon(Icons.error),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildTagsSection(Card card) {
-    final colors = _getCardFrameColors(card);
-    List<Widget> tags = [];
+  /// Applies all configured filters: search, types, attributes, etc., and sorts the results.
+  List<UserCard> _applyFilters( // <-- Corregido tipo de retorno
+      CardListViewModel cardVM, CardFiltersViewModel filterVM) {
+    final filters = filterVM.filters;
+    final sortBy = filterVM.sortBy;
+    final sortDirection = filterVM.sortDirection;
 
-    // Usar marcoCarta para determinar el tipo principal (para colores y lógica)
-    String? cardTypeForColors;
-    if (card.marcoCarta != null) {
-      final marcoLower = card.marcoCarta!.toLowerCase();
-      if (marcoLower.contains('monstruo') || marcoLower.contains('monster')) {
-        cardTypeForColors = 'monstruo';
-      } else if (marcoLower.contains('magia') || marcoLower.contains('spell')) {
-        cardTypeForColors = 'magia';
-      } else if (marcoLower.contains('trampa') || marcoLower.contains('trap')) {
-        cardTypeForColors = 'trampa';
+    // 1. Apply filters (Your existing filter logic - NO CHANGES HERE)
+    var filteredCards = cardVM.cards.where((userCard) {
+      final Card card = userCard.cardDetails; // Use Card type
+
+      final query = filters.search.toLowerCase();
+      if (query.isNotEmpty) {
+        final matchesSearch = (card.nombre?.toLowerCase().contains(query) ?? false) ||
+            card.idCarta.toLowerCase().contains(query);
+        if (!matchesSearch) return false;
       }
-    }
-
-    // Si no tenemos marcoCarta o no coincide, usar el tipo como fallback para colores
-    if (cardTypeForColors == null && card.tipo != null) {
-      final tipoLower = card.tipo!.toLowerCase();
-      if (tipoLower.contains('monstruo') || tipoLower.contains('monster')) {
-        cardTypeForColors = 'monstruo';
-      } else if (tipoLower.contains('magia') || tipoLower.contains('spell')) {
-        cardTypeForColors = 'magia';
-      } else if (tipoLower.contains('trampa') || tipoLower.contains('trap')) {
-        cardTypeForColors = 'trampa';
+      if (filters.cardTypes.isNotEmpty) {
+        final cardType = card.marcoCarta;
+        if (cardType == null || !filters.cardTypes.contains(cardType)) {
+           return false;
+        }
       }
-    }
+      if (filters.attributes.isNotEmpty) {
+        final attribute = card.atributo;
+        if (attribute == null || !filters.attributes.contains(attribute)) {
+          return false;
+        }
+      }
+      if (filters.monsterTypes.isNotEmpty) {
+        final monsterType = card.tipo;
+        if (monsterType == null || !filters.monsterTypes.contains(monsterType)) {
+           return false;
+        }
+      }
+      if (filters.spellTrapIcons.isNotEmpty) {
+        final classification = card.clasificacion;
+        if (classification == null || !filters.spellTrapIcons.contains(classification)) {
+           return false;
+        }
+      }
+      if (filters.subtypes.isNotEmpty && card.subtipo != null) {
+        final hasMatchingSubtype = card.subtipo!.any((cardSubtype) =>
+            filters.subtypes.contains(cardSubtype));
+        if (!hasMatchingSubtype) return false;
+      }
+      if (filters.minAtk?.isNotEmpty == true) {
+        final minAtk = int.tryParse(filters.minAtk!);
+        if (minAtk != null) {
+          final cardAtk = card.atk == '?' ? -1 : (int.tryParse(card.atk ?? '-1') ?? -1);
+          if (cardAtk < minAtk) {
+            return false;
+          }
+        }
+      }
+      if (filters.minDef?.isNotEmpty == true) {
+        final minDef = int.tryParse(filters.minDef!);
+        if (minDef != null) {
+          final cardDef = card.def == '?' ? -1 : (int.tryParse(card.def ?? '-1') ?? -1);
+          if (cardDef < minDef) {
+            return false;
+          }
+        }
+      }
+      return true;
+    }).toList();
 
-    // Mostrar el tipo específico (Machine, Dragon, etc.) SIEMPRE si existe
-    if (card.tipo != null && card.tipo!.isNotEmpty && card.tipo != 'null') {
-      tags.add(_buildTag(card.tipo!, colors.backgroundColor, colors.textColor));
-    }
+    // --- ⬇️ 2. SORTING LOGIC MODIFIED ⬇️ ---
+    filteredCards.sort((a, b) {
+      final Card cardA = a.cardDetails;
+      final Card cardB = b.cardDetails;
+      int comparison = 0;
 
-    // Mostrar el marco de carta (Monster, Magia, Trampa) SIEMPRE si existe
-    if (card.marcoCarta != null && card.marcoCarta!.isNotEmpty && card.marcoCarta != 'null') {
-      final marcoLower = card.marcoCarta!.toLowerCase();
-      String marcoDisplay;
+      // --- Primary Sort Logic (Monster vs Non-Monster) ---
+      // Apply ONLY when sorting by ATK, DEF, Level, Rank, Link, or Pendulum
+      bool sortByMonsterStat = sortBy == SortBy.atk || sortBy == SortBy.def || sortBy == SortBy.level || sortBy == SortBy.rank || sortBy == SortBy.link || sortBy == SortBy.pendulum;
+      if (sortByMonsterStat) {
+        // Sistema de pesos mejorado: cada tipo arriba cuando se ordene por su estadística
+        int getWeight(Card card) {
+          final marcoLower = card.marcoCarta?.toLowerCase() ?? '';
+          final tipoLower = card.tipo?.toLowerCase() ?? '';
+          final subtypesLower = (card.subtipo ?? []).map((s) => s.toLowerCase()).toList();
 
-      if (marcoLower.contains('monstruo') || marcoLower.contains('monster')) {
-        marcoDisplay = 'Monstruo';
-      } else if (marcoLower.contains('magia') || marcoLower.contains('spell')) {
-        marcoDisplay = 'Magia';
-      } else if (marcoLower.contains('trampa') || marcoLower.contains('trap')) {
-        marcoDisplay = 'Trampa';
+          // Detectar tipos especiales
+          final isLink = marcoLower.contains('link') || tipoLower.contains('link') || subtypesLower.contains('link');
+          final isXyz = marcoLower.contains('xyz') || tipoLower.contains('xyz') || subtypesLower.contains('xyz');
+          final isPendulum = marcoLower.contains('pendulum') || tipoLower.contains('pendulum') || subtypesLower.contains('pendulum');
+
+          // Prioridad: cada tipo arriba cuando se ordene por su estadística específica
+          switch (sortBy) {
+            case SortBy.link:
+              if (isLink) return 0; // Links arriba cuando se ordene por link
+              break;
+            case SortBy.pendulum:
+              if (isPendulum) return 0; // Péndulos arriba cuando se ordene por péndulo
+              break;
+            case SortBy.rank:
+              if (isXyz) return 0; // Xyz arriba cuando se ordene por rango
+              break;
+            case SortBy.level:
+              if (!isLink && !isXyz && !isPendulum && (marcoLower.contains('monster') || marcoLower.contains('monstruo'))) return 0; // Solo monstruos normales arriba
+              break;
+            default:
+              break;
+          }
+
+          // Si no es el tipo específico que se está ordenando, usar jerarquía normal
+          if (isLink || isXyz || isPendulum) return 1; // Tipos especiales en medio
+          if (marcoLower.contains('monster') || marcoLower.contains('monstruo')) return 2; // Monstruos normales
+          return 3; // Magias/Trampas abajo del todo
+        }
+
+        final int weightA = getWeight(cardA);
+        final int weightB = getWeight(cardB);
+
+        // PRIMERO: Ordenar por peso (tipo específico primero, luego otros)
+        comparison = weightA.compareTo(weightB);
+
+        // SEGUNDO: Si son del mismo peso, aplicar ordenación específica
+        if (comparison == 0) {
+          if (weightA <= 1) {
+            // Tipos especiales o monstruos normales - ordenar por estadística específica
+            switch (sortBy) {
+              case SortBy.atk:
+                final atkA = cardA.atk == '?' ? 0 : (int.tryParse(cardA.atk ?? '0') ?? 0);
+                final atkB = cardB.atk == '?' ? 0 : (int.tryParse(cardB.atk ?? '0') ?? 0);
+                comparison = atkA.compareTo(atkB);
+                break;
+              case SortBy.def:
+                final defA = cardA.def == '?' ? 0 : (int.tryParse(cardA.def ?? '0') ?? 0);
+                final defB = cardB.def == '?' ? 0 : (int.tryParse(cardB.def ?? '0') ?? 0);
+                comparison = defA.compareTo(defB);
+                break;
+              case SortBy.level:
+                // Solo ordenar monstruos normales por nivel
+                comparison = (cardA.nivelRankLink ?? 0).compareTo(cardB.nivelRankLink ?? 0);
+                break;
+              case SortBy.rank:
+                // Solo ordenar Xyz por rango
+                comparison = (cardA.nivelRankLink ?? 0).compareTo(cardB.nivelRankLink ?? 0);
+                break;
+              case SortBy.link:
+                comparison = (cardA.ratioEnlace ?? 0).compareTo(cardB.ratioEnlace ?? 0);
+                break;
+              case SortBy.pendulum:
+                comparison = (cardA.escalaPendulo ?? 0).compareTo(cardB.escalaPendulo ?? 0);
+                break;
+              default:
+                comparison = 0;
+                break;
+            }
+          } else {
+            // Magias/trampas - ordenar por nombre
+            comparison = (cardA.nombre ?? '').compareTo(cardB.nombre ?? '');
+          }
+
+          // Aplicar dirección solo a la ordenación específica, no al peso
+          if (sortDirection == SortDirection.desc) {
+            comparison = comparison * -1;
+          }
+        }
       } else {
-        marcoDisplay = card.marcoCarta!;
-      }
-
-      tags.add(_buildTag(marcoDisplay, colors.backgroundColor, colors.textColor));
-    }
-
-    // Mostrar los subtipos/iconos SIEMPRE junto con el tipo
-    if (card.subtipo != null) {
-      for (var s in card.subtipo!) {
-        if (s.isNotEmpty) {
-          tags.add(_buildTag(s, colors.backgroundColor, colors.textColor));
+        // Para otros tipos de ordenación (nombre, tipo de carta), usar la lógica normal
+        switch (sortBy) {
+          case SortBy.name:
+            comparison = (cardA.nombre ?? '').compareTo(cardB.nombre ?? '');
+            break;
+          case SortBy.cardType:
+            final valA = _getCardSortValue(cardA);
+            final valB = _getCardSortValue(cardB);
+            comparison = valA.compareTo(valB);
+            break;
+          default:
+            comparison = 0;
+            break;
         }
-      }
-    }
 
-    // Si no hay subtipos pero hay iconoCarta, mostrarlo
-    if ((card.subtipo == null || card.subtipo!.isEmpty) && card.iconoCarta != null && card.iconoCarta!.isNotEmpty && card.iconoCarta != 'null') {
-      tags.add(_buildTag(card.iconoCarta!, colors.backgroundColor, colors.textColor));
-    }
-
-    // La rareza tiene un estilo neutral diferente y llamativo
-    if (card.rareza != null) {
-      for (var r in card.rareza!) {
-        if (r.isNotEmpty && r != 'null') tags.add(_buildTag(r, Colors.grey.shade800, Colors.yellow.shade200));
-      }
-    }
-
-    return Wrap(spacing: 6.0, runSpacing: 6.0, children: tags);
-  }
-
-  Widget _buildTag(String text, Color backgroundColor, Color textColor) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: textColor.withOpacity(0.5), width: 1),
-      ),
-      child: Text(text, style: TextStyle(color: textColor, fontSize: 11, fontWeight: FontWeight.bold)),
-    );
-  }
-
-  Widget _buildDetailRow(String label, String? value) {
-    if (value == null || value.trim().isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3.0),
-      child: RichText(
-        text: TextSpan(
-          style: TextStyle(color: AppColors.textPrimary, fontSize: 13),
-          children: [
-            TextSpan(text: '$label ', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-            TextSpan(text: value, style: TextStyle(color: AppColors.textSecondary)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // =======================================================================
-  // --- FUNCIÓN CORREGIDA ---
-  // =======================================================================
-
-  Widget _buildCardSpecificDetails(Card card) {
-    // --- LA CORRECCIÓN ESTÁ AQUÍ ---
-    // Usamos marcoCarta para saber la categoría principal de la carta
-    final marcoLower = card.marcoCarta?.toLowerCase() ?? '';
-    final isMonster = marcoLower.contains('monstruo') || marcoLower.contains('monster');
-    final isMagic = marcoLower.contains('magia') || marcoLower.contains('spell');
-    final isTrap = marcoLower.contains('trampa') || marcoLower.contains('trap');
-    // --- FIN DE LA CORRECCIÓN ---
-
-    if (isMonster) {
-      // Esta lógica interna ya estaba bien.
-      // Ahora sí se ejecutará para todos los monstruos.
-      final hasXyzSubtypes = card.subtipo?.any((subtype) =>
-          subtype.toLowerCase().contains('xyz') ||
-          subtype.toLowerCase().contains('xiez')) ?? false;
-
-      final hasLinkSubtypes = card.subtipo?.any((subtype) =>
-          subtype.toLowerCase().contains('link')) ?? false;
-
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildDetailRow('Atributo:', card.atributo),
-                // Mostrar Nivel, Rango o Link según el tipo
-                if (hasLinkSubtypes && card.nivelRankLink != null)
-                  _buildDetailRow('Link:', card.nivelRankLink?.toString())
-                else if (hasXyzSubtypes && card.nivelRankLink != null)
-                  _buildDetailRow('Rango:', card.nivelRankLink?.toString())
-                else if (card.nivelRankLink != null)
-                  _buildDetailRow('Nivel:', card.nivelRankLink?.toString()),
-              ],
-            ),
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Mostrar ATK/DEF solo si existe alguno de los dos
-                if (card.atk != null || card.def != null)
-                  _buildDetailRow(
-                    'ATK/DEF:',
-                    // Para monstruos Link, la defensa es nula, así que mostramos '-'
-                    hasLinkSubtypes 
-                      ? '${card.atk ?? '?'}/-' 
-                      : '${card.atk ?? '?'}/${card.def ?? '?'}',
-                  ),
-              ],
-            ),
-          ),
-        ],
-      );
-    } else if (isMagic || isTrap) {
-      // Para magia y trampa no hay detalles específicos que mostrar aquí
-      return const SizedBox.shrink();
-    } else {
-      // Fallback por si acaso
-      return const SizedBox.shrink();
-    }
-  }
-
-  // =======================================================================
-  // --- FIN DE LA FUNCIÓN CORREGIDA ---
-  // =======================================================================
-  
-  String _getDescriptionText(Map<String, dynamic>? descripcion) {
-    // Si descripción es null, retornar mensaje estándar
-    if (descripcion == null || descripcion.isEmpty) {
-      return 'Descripción no disponible';
-    }
-
-    // Si es un mapa con clave 'texto', devolver ese valor directamente
-    if (descripcion.containsKey('texto') && descripcion['texto'] != null) {
-      return descripcion['texto'].toString();
-    }
-
-    // Intentar diferentes formatos comunes de descripción
-    String? extractDescription() {
-      // Formato directo: {'es': 'texto', 'en': 'texto'}
-      if (descripcion.containsKey('es') && descripcion['es'] != null) {
-        return descripcion['es'].toString();
-      }
-      if (descripcion.containsKey('ES') && descripcion['ES'] != null) {
-        return descripcion['ES'].toString();
-      }
-      if (descripcion.containsKey('en') && descripcion['en'] != null) {
-        return descripcion['en'].toString();
-      }
-      if (descripcion.containsKey('EN') && descripcion['EN'] != null) {
-        return descripcion['EN'].toString();
-      }
-
-      // Si no hay claves estándar, tomar cualquier valor no vacío
-      for (var value in descripcion.values) {
-        if (value != null && value.toString().trim().isNotEmpty) {
-          return value.toString();
+        // Aplicar dirección a la ordenación normal
+        if (sortDirection == SortDirection.desc) {
+          comparison = comparison * -1;
         }
       }
 
-      return null;
-    }
+      // Apply direction to the final comparison result
+      return comparison;
+    });
+    // --- ⬆️ END OF SORTING MODIFICATION ⬆️ ---
 
-    final description = extractDescription();
-    return description ?? 'Descripción no disponible';
+    return filteredCards;
   }
 
-  void _showSortDialog() {
+  /// Calculates the number of active filters (excluding search).
+  int _getActiveFiltersCount(CardFiltersViewModel vm) {
+    final f = vm.filters;
+    return f.cardTypes.length +
+        f.attributes.length +
+        f.monsterTypes.length +
+        f.subtypes.length +
+        f.spellTrapIcons.length +
+        ((f.minAtk?.isNotEmpty ?? false) ? 1 : 0) +
+        ((f.minDef?.isNotEmpty ?? false) ? 1 : 0);
+  }
+
+  /// Shows the sorting options dialog.
+  void _showSortDialog(BuildContext context, CardFiltersViewModel vm) {
+    final theme = Theme.of(context);
+    final List<Map<String, dynamic>> sortOptions = [
+      {'value': SortBy.name, 'label': 'Nombre', 'icon': Icons.sort_by_alpha, 'color': AppColors.primary},
+      {'value': SortBy.atk, 'label': 'Ataque', 'icon': Icons.flash_on, 'color': Colors.orangeAccent},
+      {'value': SortBy.def, 'label': 'Defensa', 'icon': Icons.shield, 'color': Colors.cyan},
+      {'value': SortBy.level, 'label': 'Nivel', 'icon': Icons.star, 'color': Colors.yellowAccent},
+      {'value': SortBy.rank, 'label': 'Rango (Xyz)', 'icon': Icons.diamond, 'color': Colors.black},
+      {'value': SortBy.link, 'label': 'Link (Ratio)', 'icon': Icons.link, 'color': const Color(0xFF0077CC)},
+      {'value': SortBy.pendulum, 'label': 'Escala Péndulo', 'icon': Icons.balance, 'color': Colors.purpleAccent},
+      {'value': SortBy.cardType, 'label': 'Tipo de Carta', 'icon': Icons.style, 'color': Colors.grey},
+    ];
+
     showDialog(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Ordenar por'),
-          content: Column(
+      builder: (_) => AlertDialog(
+        backgroundColor: theme.dialogTheme.backgroundColor ?? AppColors.surface,
+        shape: theme.dialogTheme.shape ?? RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.lg)),
+        title: Text('Ordenar por', style: theme.dialogTheme.titleTextStyle),
+        contentPadding: const EdgeInsets.only(top: AppSpacing.sm, bottom: AppSpacing.sm),
+        content: SingleChildScrollView(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                title: const Text('Nombre (A-Z)'),
-                leading: Radio<String>(
-                  value: 'name_asc',
-                  groupValue: 'name_asc',
-                  onChanged: (value) {
-                    Navigator.of(context).pop();
-                  },
-                ),
-              ),
-              ListTile(
-                title: const Text('Nombre (Z-A)'),
-                leading: Radio<String>(
-                  value: 'name_desc',
-                  groupValue: 'name_asc',
-                  onChanged: (value) {
-                    Navigator.of(context).pop();
-                  },
-                ),
-              ),
-            ],
+            children: sortOptions.map((option) {
+              final sortByValue = option['value'] as SortBy;
+              final isSelected = vm.sortBy == sortByValue;
+              return ListTile(
+                leading: Icon(option['icon'] as IconData, color: option['color'] as Color),
+                title: Text(option['label'] as String, style: theme.textTheme.bodyLarge),
+                trailing: isSelected
+                  ? Icon(
+                      vm.sortDirection == SortDirection.asc ? Icons.arrow_upward : Icons.arrow_downward,
+                      color: AppColors.primary,
+                      size: 20,
+                    )
+                  : null,
+                onTap: () {
+                  vm.setSort(sortByValue);
+                  Navigator.pop(context);
+                },
+              );
+            }).toList(),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancelar'),
-            ),
-          ],
-        );
-      },
+        ),
+         actions: [
+           TextButton(
+             onPressed: () => Navigator.pop(context),
+             child: Text('Cerrar', style: TextStyle(color: AppColors.primary)),
+           ),
+         ],
+      ),
     );
   }
 
-  void _showFilterDialog() {
+  /// Shows the filters dialog.
+  void _showFilterDialog(BuildContext context, CardFiltersViewModel vm) {
     showDialog(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Filtros'),
-          content: const Text('Las opciones de filtro aparecerán aquí.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cerrar'),
-            ),
-          ],
-        );
-      },
+      builder: (_) => FiltersDialog(viewModel: vm),
     );
   }
 }

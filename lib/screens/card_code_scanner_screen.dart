@@ -3,6 +3,7 @@ import 'package:camera/camera.dart';
 import 'package:provider/provider.dart';
 import '../view_models/card_scanner_view_model.dart';
 import '../screens/processing_screen.dart';
+import '../core/theme/app_theme.dart';
 
 class CardCodeScannerScreen extends StatefulWidget {
   const CardCodeScannerScreen({super.key});
@@ -16,13 +17,17 @@ class _CardCodeScannerScreenState extends State<CardCodeScannerScreen>
   CameraController? _cameraController;
   late Future<void> _initCameraFuture;
 
-  // Variables para mejoras de la cámara
+  final GlobalKey _cameraWidgetKey = GlobalKey();
+
   double _currentZoomLevel = 1.0;
   double _minZoomLevel = 1.0;
   double _maxZoomLevel = 1.0;
   bool _isFlashOn = false;
   Offset? _focusPoint;
   late AnimationController _focusAnimationController;
+
+  final double _cardAspectRatio = 86 / 59;
+  final double _cardCornerRadius = AppSpacing.sm; // 8.0
 
   @override
   void initState() {
@@ -44,6 +49,361 @@ class _CardCodeScannerScreenState extends State<CardCodeScannerScreen>
     super.dispose();
   }
 
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: SafeArea(
+        child: FutureBuilder<void>(
+          future: _initCameraFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done ||
+                _cameraController == null ||
+                !_cameraController!.value.isInitialized) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            return Consumer<CardScannerViewModel>(
+              builder: (context, viewModel, child) {
+                return Row(
+                  children: [
+                    _buildCameraSection(viewModel, theme),
+                    _buildControlsSection(viewModel, theme),
+                  ],
+                );
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  // ==========================
+  // CÁMARA + UI
+  // ==========================
+
+Widget _buildCameraSection(
+  CardScannerViewModel viewModel,
+  ThemeData theme,
+) {
+  return Expanded(
+    child: Padding(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final totalHeight = constraints.maxHeight;
+
+          // Altura reservada para texto y padding (~15% del total)
+          final reservedHeight = totalHeight * 0.15;
+
+          // Altura disponible para cámara + barra
+          final availableHeight = totalHeight - reservedHeight;
+
+          // Altura del marco y la barra
+          final zoomBarHeight = 50.0;
+          final frameHeight = availableHeight - zoomBarHeight - AppSpacing.sm;
+
+          // Calculamos el ancho según la proporción 86/59
+          final frameWidth = frameHeight * _cardAspectRatio;
+
+          return Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Título
+              Text(
+                'Añadir Cartas',
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+
+              // --- Cámara y barra ---
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Marco de cámara ajustado
+                  SizedBox(
+                    width: frameWidth,
+                    height: frameHeight,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        ClipRRect(
+                          borderRadius:
+                              BorderRadius.circular(_cardCornerRadius),
+                          child: GestureDetector(
+                            key: _cameraWidgetKey,
+                            onTapDown: (details) =>
+                                _onFocusTap(details, _cameraWidgetKey),
+                            child: FittedBox(
+                              fit: BoxFit.cover,
+                              child: SizedBox(
+                                width: frameWidth,
+                                height: frameHeight,
+                                child: CameraPreview(_cameraController!),
+                              ),
+                            ),
+                          ),
+                        ),
+                        IgnorePointer(child: _buildCardFramePlaceholder()),
+                        if (_focusPoint != null) _buildFocusCircle(),
+                        _buildCameraOverlay(viewModel, theme),
+                      ],
+                    ),
+                  ),
+
+                  // Barra de zoom exactamente del mismo ancho
+                  const SizedBox(height: AppSpacing.sm),
+                  SizedBox(
+                    width: frameWidth,
+                    height: zoomBarHeight,
+                    child: _buildFloatingZoomBar(theme),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    ),
+  );
+}
+
+
+  Widget _buildCardFramePlaceholder() {
+    return Image.asset(
+      'lib/assets/ygo_card_frame.png',
+      fit: BoxFit.fill,
+    );
+  }
+
+  Widget _buildFocusCircle() {
+    return Positioned(
+      left: _focusPoint!.dx - 40,
+      top: _focusPoint!.dy - 40,
+      child: FadeTransition(
+        opacity: Tween<double>(begin: 1.0, end: 0.0).animate(
+          CurvedAnimation(
+            parent: _focusAnimationController,
+            curve: Curves.easeOut,
+          ),
+        ),
+        child: Container(
+          width: 80,
+          height: 80,
+          decoration: BoxDecoration(
+            shape: BoxShape.rectangle,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(width: 2, color: AppColors.accent),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCameraOverlay(
+    CardScannerViewModel viewModel,
+    ThemeData theme,
+  ) {
+    final overlayColor = AppColors.surface.withAlpha(179);
+    final onOverlayColor = AppColors.textPrimary;
+
+    return Stack(
+      children: [
+        Positioned(
+          top: 10,
+          left: 10,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: overlayColor,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              '${viewModel.scannedCodes.length}/${CardScannerViewModel.batchLimit}',
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: onOverlayColor,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          top: 10,
+          right: 10,
+          child: IconButton(
+            icon: Icon(
+              _isFlashOn ? Icons.flash_on : Icons.flash_off,
+              color: onOverlayColor,
+              size: 28,
+            ),
+            style: IconButton.styleFrom(
+              backgroundColor: overlayColor,
+            ),
+            onPressed: _toggleFlash,
+          ),
+        ),
+        if (viewModel.feedbackText.isNotEmpty)
+          Center(
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              decoration: BoxDecoration(
+                color: overlayColor,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                viewModel.feedbackText,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  color: onOverlayColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        if (viewModel.state == ViewState.busy)
+          const Center(child: CircularProgressIndicator()),
+      ],
+    );
+  }
+
+  Widget _buildFloatingZoomBar(ThemeData theme) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 40),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: SliderTheme(
+        data: SliderTheme.of(context).copyWith(
+          trackHeight: 3,
+          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+          overlayShape: SliderComponentShape.noOverlay,
+          activeTrackColor: AppColors.primary.withValues(alpha: 179 / 255),
+          inactiveTrackColor: AppColors.primary.withValues(alpha: 76 / 255),
+          thumbColor: AppColors.primary,
+        ),
+        child: Slider(
+          value: _currentZoomLevel,
+          min: _minZoomLevel,
+          max: _maxZoomLevel,
+          onChanged: _onZoomChanged,
+        ),
+      ),
+    );
+  }
+
+  // ==========================
+  // BOTONES DE CONTROL
+  // ==========================
+
+  Widget _buildControlsSection(
+    CardScannerViewModel viewModel,
+    ThemeData theme,
+  ) {
+    final bool isBusy = viewModel.state == ViewState.busy;
+    final totalCodesForBatch = viewModel.scannedCodes.length;
+
+    final primaryButtonStyle = theme.elevatedButtonTheme.style?.copyWith(
+      minimumSize: WidgetStateProperty.all(const Size(180, 90)),
+      textStyle: WidgetStateProperty.all(
+        theme.textTheme.headlineSmall?.copyWith(
+          fontWeight: FontWeight.bold,
+          color: AppColors.darkText,
+        ),
+      ),
+    );
+
+    final secondaryButtonStyle = ElevatedButton.styleFrom(
+      minimumSize: const Size(150, 60),
+      textStyle: theme.textTheme.titleLarge,
+    ).copyWith(
+      backgroundColor: WidgetStateProperty.resolveWith<Color?>(
+        (Set<WidgetState> states) {
+          if (states.contains(WidgetState.disabled)) {
+            return AppColors.border;
+          }
+          return AppColors.surface;
+        },
+      ),
+      foregroundColor: WidgetStateProperty.resolveWith<Color?>(
+        (Set<WidgetState> states) {
+          if (states.contains(WidgetState.disabled)) {
+            return AppColors.textSecondary;
+          }
+          return AppColors.textPrimary;
+        },
+      ),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(
+        right: AppSpacing.lg,
+        top: AppSpacing.lg,
+        bottom: AppSpacing.lg,
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            style: secondaryButtonStyle,
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton.icon(
+            onPressed: isBusy
+                ? null
+                : () => viewModel.scanAndAddToList(_cameraController!),
+            icon: const Icon(Icons.camera_alt, size: 40),
+            label: const Text('Escanear'),
+            style: primaryButtonStyle,
+          ),
+          ElevatedButton(
+            onPressed: (isBusy || viewModel.scannedCodes.isEmpty)
+                ? null
+                : () async {
+                    final jobId = await viewModel.sendBatch();
+                    if (jobId != null && mounted) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ProcessingScreen(
+                                jobId: jobId,
+                                totalCards: totalCodesForBatch,
+                              ),
+                            ),
+                          );
+                        }
+                      });
+                    }
+                  },
+            style: secondaryButtonStyle,
+            child: const Text('Enviar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==========================
+  // FUNCIONES DE CÁMARA
+  // ==========================
+
   Future<void> _initializeCamera() async {
     try {
       final cameras = await availableCameras();
@@ -52,12 +412,9 @@ class _CardCodeScannerScreenState extends State<CardCodeScannerScreen>
         orElse: () => cameras.first,
       );
 
-      // Try different resolution presets if high fails
-      ResolutionPreset preset = ResolutionPreset.high;
-
       _cameraController = CameraController(
         backCamera,
-        preset,
+        ResolutionPreset.high,
         enableAudio: false,
       );
 
@@ -68,36 +425,36 @@ class _CardCodeScannerScreenState extends State<CardCodeScannerScreen>
       _minZoomLevel = await _cameraController!.getMinZoomLevel();
       _maxZoomLevel = await _cameraController!.getMaxZoomLevel();
 
+      setState(() {});
     } catch (e) {
-      debugPrint("Error initializing camera with high resolution: $e");
+      debugPrint("Error initializing camera: $e");
+      _showCameraErrorDialog();
+    }
+  }
 
-      // Try with medium resolution if high fails
-      try {
-        final cameras = await availableCameras();
-        final backCamera = cameras.firstWhere(
-          (c) => c.lensDirection == CameraLensDirection.back,
-          orElse: () => cameras.first,
-        );
+  Future<void> _onFocusTap(TapDownDetails details, GlobalKey widgetKey) async {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
+      return;
+    }
 
-        _cameraController = CameraController(
-          backCamera,
-          ResolutionPreset.medium,
-          enableAudio: false,
-        );
+    final RenderBox? renderBox =
+        widgetKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
 
-        await _cameraController!.initialize();
+    final localOffset = renderBox.globalToLocal(details.globalPosition);
+    final normalized = Offset(
+      (localOffset.dx / renderBox.size.width).clamp(0.0, 1.0),
+      (localOffset.dy / renderBox.size.height).clamp(0.0, 1.0),
+    );
 
-        if (!mounted) return;
+    try {
+      setState(() => _focusPoint = localOffset);
+      _focusAnimationController.forward(from: 0.0);
 
-        _minZoomLevel = await _cameraController!.getMinZoomLevel();
-        _maxZoomLevel = await _cameraController!.getMaxZoomLevel();
-
-      } catch (e2) {
-        debugPrint("Error initializing camera with medium resolution: $e2");
-        if (mounted) {
-          _showCameraErrorDialog();
-        }
-      }
+      await _cameraController!.setFocusPoint(normalized);
+      await _cameraController!.setExposurePoint(normalized);
+    } catch (e) {
+      debugPrint("⚠️ Error al enfocar: $e");
     }
   }
 
@@ -131,15 +488,14 @@ class _CardCodeScannerScreenState extends State<CardCodeScannerScreen>
           'No se pudo inicializar la cámara. Esto puede deberse a problemas de compatibilidad con tu dispositivo.\n\n'
           'Posibles soluciones:\n'
           '• Reinicia la aplicación\n'
-          '• Reinicia tu dispositivo\n'
-          '• Verifica que la cámara no esté siendo usada por otra aplicación\n'
-          '• Asegúrate de que la aplicación tenga permisos de cámara',
+          '• Verifica los permisos de cámara\n'
+          '• Asegúrate de que no esté siendo usada por otra app',
         ),
         actions: [
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              Navigator.of(context).pop(); // Go back to previous screen
+              Navigator.of(context).pop();
             },
             child: const Text("Aceptar"),
           ),
@@ -152,9 +508,8 @@ class _CardCodeScannerScreenState extends State<CardCodeScannerScreen>
     if (_cameraController == null) return;
     setState(() {
       _isFlashOn = !_isFlashOn;
-      _cameraController!.setFlashMode(
-        _isFlashOn ? FlashMode.torch : FlashMode.off,
-      );
+      _cameraController!
+          .setFlashMode(_isFlashOn ? FlashMode.torch : FlashMode.off);
     });
   }
 
@@ -164,282 +519,5 @@ class _CardCodeScannerScreenState extends State<CardCodeScannerScreen>
       _currentZoomLevel = value;
       _cameraController!.setZoomLevel(value);
     });
-  }
-
-  Future<void> _onFocusTap(TapDownDetails details) async {
-    if (_cameraController == null || !_cameraController!.value.isInitialized) {
-      return;
-    }
-    try {
-      if (mounted) {
-        setState(() {
-          _focusPoint = details.localPosition;
-        });
-        _focusAnimationController.forward(from: 0.0);
-      }
-      final size = MediaQuery.of(context).size;
-      final offset = Offset(
-        details.localPosition.dx / size.width,
-        details.localPosition.dy / size.height,
-      );
-      await _cameraController!.setFocusPoint(offset);
-      await _cameraController!.setExposurePoint(offset);
-    } catch (e) {
-      debugPrint("⚠️ Error al enfocar: $e");
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: FutureBuilder<void>(
-          future: _initCameraFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done ||
-                _cameraController == null) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            return Consumer<CardScannerViewModel>(
-              builder: (context, viewModel, child) {
-                return Row(
-                  children: [
-                    _buildCameraSection(viewModel),
-                    // >>>>> CÓDIGO CORREGIDO <<<<<
-                    // El widget de controles ha sido reemplazado por la versión correcta.
-                    _buildControlsSection(viewModel),
-                  ],
-                );
-              },
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCameraSection(CardScannerViewModel viewModel) {
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          children: [
-            Text(
-              'Añadir Cartas',
-              style: TextStyle(
-                color: Colors.blueAccent[100],
-                fontWeight: FontWeight.bold,
-                fontSize: 32,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Expanded(
-              child: Stack(
-                alignment: Alignment.center,
-                fit: StackFit.expand,
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: GestureDetector(
-                      onTapDown: _onFocusTap,
-                      child: CameraPreview(_cameraController!),
-                    ),
-                  ),
-                  if (_focusPoint != null) _buildFocusCircle(),
-                  _buildCameraOverlay(viewModel),
-                ],
-              ),
-            ),
-            _buildZoomSlider(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFocusCircle() {
-    return Positioned(
-      left: _focusPoint!.dx - 40,
-      top: _focusPoint!.dy - 40,
-      child: FadeTransition(
-        opacity: Tween<double>(begin: 1.0, end: 0.0).animate(
-          CurvedAnimation(
-            parent: _focusAnimationController,
-            curve: Curves.easeOut,
-          ),
-        ),
-        child: Container(
-          width: 80,
-          height: 80,
-          decoration: BoxDecoration(
-            shape: BoxShape.rectangle,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(width: 2, color: Colors.yellowAccent),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCameraOverlay(CardScannerViewModel viewModel) {
-    return Stack(
-      children: [
-        Positioned(
-          top: 10,
-          left: 10,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.6),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              '${viewModel.scannedCodes.length}/${CardScannerViewModel.batchLimit}',
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ),
-        Positioned(
-          top: 10,
-          right: 10,
-          child: IconButton(
-            icon: Icon(
-              _isFlashOn ? Icons.flash_on : Icons.flash_off,
-              color: Colors.white,
-              size: 28,
-            ),
-            style: IconButton.styleFrom(
-              backgroundColor: Colors.black.withOpacity(0.5),
-            ),
-            onPressed: _toggleFlash,
-          ),
-        ),
-        if (viewModel.feedbackText.isNotEmpty)
-          Center(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.7),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                viewModel.feedbackText,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-        if (viewModel.state == ViewState.busy)
-          const Center(child: CircularProgressIndicator()),
-      ],
-    );
-  }
-
-  Widget _buildZoomSlider() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: SliderTheme(
-        data: SliderTheme.of(context).copyWith(
-          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-          thumbColor: Colors.white,
-          activeTrackColor: Colors.white70,
-          inactiveTrackColor: Colors.white30,
-        ),
-        child: Slider(
-          value: _currentZoomLevel,
-          min: _minZoomLevel,
-          max: _maxZoomLevel,
-          onChanged: _onZoomChanged,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildControlsSection(CardScannerViewModel viewModel) {
-    final bool isBusy = viewModel.state == ViewState.busy;
-    // Guardamos una copia del total de códigos ANTES de que el ViewModel los limpie
-    final totalCodesForBatch = viewModel.scannedCodes.length;
-
-    return Padding(
-      padding: const EdgeInsets.only(right: 20.0, top: 20, bottom: 20),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          // Botón de cancelar (este ya estaba bien)
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.grey[800],
-              foregroundColor: Colors.white,
-              minimumSize: const Size(150, 60),
-            ),
-            child: const Text('Cancelar', style: TextStyle(fontSize: 20)),
-          ),
-
-          // Botón de escanear (este ya estaba bien)
-          ElevatedButton.icon(
-            onPressed:
-                isBusy
-                    ? null
-                    : () => viewModel.scanAndAddToList(_cameraController!),
-            icon: const Icon(Icons.camera_alt, size: 40),
-            label: const Text('Escanear'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue[800],
-              foregroundColor: Colors.white,
-              minimumSize: const Size(180, 90),
-              textStyle: const TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-
-          // --- Botón de enviar (CON LA LÓGICA FINAL Y SIN EL .clearCodes()) ---
-          ElevatedButton(
-            onPressed:
-                (isBusy || viewModel.scannedCodes.isEmpty)
-                    ? null
-                    : () async {
-                      // 1. Llama al viewModel para iniciar el lote y espera el jobId
-                      final jobId = await viewModel.sendBatch();
-
-                      // 2. Si n8n nos da un jobId y el widget sigue "montado"...
-                      if (jobId != null && mounted) {
-                        // ¡AQUÍ YA NO HAY LLAMADA A clearCodes(), el ViewModel lo hace solo!
-
-                        // 3. ...navegamos a la pantalla de progreso.
-                        Navigator.pushReplacement(
-                          // Usamos pushReplacement para que no se pueda volver atrás
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (context) => ProcessingScreen(
-                                  jobId: jobId,
-                                  totalCards: totalCodesForBatch,
-                                ),
-                          ),
-                        );
-                      }
-                    },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.grey[800],
-              foregroundColor: Colors.white,
-              disabledBackgroundColor: Colors.grey[900],
-              minimumSize: const Size(150, 60),
-            ),
-            child: const Text('Enviar', style: TextStyle(fontSize: 20)),
-          ),
-        ],
-      ),
-    );
   }
 }

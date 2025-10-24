@@ -1,3 +1,5 @@
+// lib/main.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -67,35 +69,44 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // Servicio de autenticación
+        // --- 1. Providers que NO dependen de nada ---
         Provider<AuthService>(
           create: (_) => AuthService(),
         ),
-        // Servicio de Supabase (necesario para CardListViewModel)
         Provider<SupabaseService>(
           create: (_) => SupabaseService(),
         ),
-        // Repositorio de autenticación
-        Provider<AuthRepository>(
-          create: (context) => AuthRepository(context.read<AuthService>()),
+        ChangeNotifierProvider<ProcessedCardsViewModel>(
+          create: (context) => ProcessedCardsViewModel(),
         ),
-        // ViewModel de autenticación
-        ChangeNotifierProvider<AuthViewModel>(
-          create: (context) => AuthViewModel(context.read<AuthRepository>()),
-        ),
-        // ViewModel para gestión de cartas
         ChangeNotifierProvider<CardListViewModel>(
           create: (context) => CardListViewModel(),
         ),
-        // ViewModel para cartas procesadas
-        ChangeNotifierProvider<ProcessedCardsViewModel>(
-          create: (context) => ProcessedCardsViewModel(),
+
+        // --- 2. Providers que SÍ dependen de otros (usando Proxy) ---
+
+        // AuthRepository depende de AuthService
+        ProxyProvider<AuthService, AuthRepository>(
+          update: (context, authService, previousRepository) =>
+              AuthRepository(authService),
+        ),
+
+        // AuthViewModel (un ChangeNotifier) depende de AuthRepository
+        ChangeNotifierProxyProvider<AuthRepository, AuthViewModel>(
+          // 'create' se llama la primera vez. 'context.read' es seguro aquí
+          // porque AuthRepository está definido en el ProxyProvider de arriba.
+          create: (context) => AuthViewModel(context.read<AuthRepository>()),
+          
+          // 'update' se llama si AuthRepository cambia (en tu caso, no lo hará,
+          // pero este es el patrón completo).
+          update: (context, authRepo, previousViewModel) =>
+              AuthViewModel(authRepo),
         ),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         title: 'YuGiOh Card Manager',
-        theme: AppTheme.darkTheme,
+        theme: AppTheme.darkTheme, // Tu tema personalizado
         home: const SplashScreen(),
       ),
     );

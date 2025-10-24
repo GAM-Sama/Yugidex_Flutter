@@ -16,6 +16,11 @@ class ProcessedCardsViewModel extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
+  set errorMessage(String? value) {
+    _errorMessage = value;
+    notifyListeners();
+  }
+
   void initialize(SupabaseService supabaseService) {
     _supabaseService = supabaseService;
   }

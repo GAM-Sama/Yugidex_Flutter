@@ -13,6 +13,9 @@ class AuthService {
     });
   }
 
+  /// Usuario actualmente autenticado
+  User? get currentUser => _auth.currentUser;
+
   /// Registra un nuevo usuario con email y contraseña.
   Future<void> signUp(String name, String email, String password) async {
     try {
@@ -42,5 +45,16 @@ class AuthService {
   /// Cierra la sesión del usuario actual.
   Future<void> signOut() async {
     await _auth.signOut();
+  }
+
+  /// Actualiza los metadatos del usuario actual
+  Future<void> updateUserMetadata(Map<String, dynamic> metadata) async {
+    try {
+      await _auth.updateUser(
+        UserAttributes(data: metadata),
+      );
+    } on AuthException catch (e) {
+      throw Exception('Error al actualizar metadatos del usuario: ${e.message}');
+    }
   }
 }
