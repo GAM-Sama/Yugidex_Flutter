@@ -8,7 +8,6 @@ import 'package:yugioh_scanner/shared/widgets/card_detail_panel.dart';
 import 'package:yugioh_scanner/shared/widgets/collection_toolbar.dart';
 import 'package:yugioh_scanner/shared/widgets/filters_dialog.dart';
 import 'package:yugioh_scanner/core/theme/app_theme.dart';
-import 'package:yugioh_scanner/services/supabase_service.dart'; // Mantengo el import aunque no se use directamente aquí
 import 'package:yugioh_scanner/view_models/card_list_view_model.dart';
 import 'package:yugioh_scanner/view_models/card_filters_view_model.dart';
 import 'package:yugioh_scanner/models/card_filters.dart'; // Imports SortBy/SortDirection/CardFilters
@@ -135,7 +134,7 @@ class _CardListScreenState extends State<CardListScreen> {
               child: Row(
                 children: [
                   CardDetailPanel(
-                    cardDetails: cardVM.selectedCard?.cardDetails,
+                    userCard: cardVM.selectedCard,
                     isUserCollection: true,
                   ),
 
@@ -189,39 +188,68 @@ class _CardListScreenState extends State<CardListScreen> {
                                           child: FadeInAnimation(
                                             child: GestureDetector(
                                               onTap: () => cardVM.selectCard(userCard),
-                                              child: Container(
-                                                decoration: BoxDecoration(
-                                                  borderRadius: BorderRadius.circular(AppSpacing.sm),
-                                                  border: Border.all(
-                                                    color: isSelected
-                                                        ? AppColors.primary
-                                                        : Colors.transparent,
-                                                    width: 2.5,
-                                                  ),
-                                                ),
-                                                child: ClipRRect(
-                                                  borderRadius: BorderRadius.circular(AppSpacing.xs),
-                                                  child: CachedNetworkImage(
-                                                    imageUrl: card.imagen ?? '',
-                                                    fit: BoxFit.cover,
-                                                    placeholder: (c, u) =>
-                                                        Container(color: theme.colorScheme.surface),
-                                                    errorWidget: (c, u, e) {
-                                                      // Si la carta no tiene nombre (es fallida) o no tiene imagen, mostrar back-card.png
-                                                      if (card.nombre == null || card.nombre!.isEmpty || card.imagen == null || card.imagen!.isEmpty) {
-                                                        return Image.asset(
-                                                          'lib/assets/back-card.png',
-                                                          fit: BoxFit.cover,
-                                                        );
-                                                      }
-                                                      // Si hay error de carga pero la carta es válida, mostrar back-card.png en lugar del icono de error
-                                                      return Image.asset(
-                                                        'lib/assets/back-card.png',
+                                              child: Stack(
+                                                children: [
+                                                  Container(
+                                                    decoration: BoxDecoration(
+                                                      borderRadius: BorderRadius.circular(AppSpacing.sm),
+                                                      border: Border.all(
+                                                        color: isSelected
+                                                            ? AppColors.primary
+                                                            : Colors.transparent,
+                                                        width: 2.5,
+                                                      ),
+                                                    ),
+                                                    child: ClipRRect(
+                                                      borderRadius: BorderRadius.circular(AppSpacing.xs),
+                                                      child: CachedNetworkImage(
+                                                        imageUrl: card.imagen ?? '',
                                                         fit: BoxFit.cover,
-                                                      );
-                                                    },
+                                                        placeholder: (c, u) =>
+                                                            Container(color: theme.colorScheme.surface),
+                                                        errorWidget: (c, u, e) {
+                                                          // Si la carta no tiene nombre (es fallida) o no tiene imagen, mostrar back-card.png
+                                                          if (card.nombre == null || card.nombre!.isEmpty || card.imagen == null || card.imagen!.isEmpty) {
+                                                            return Image.asset(
+                                                              'lib/assets/back-card.png',
+                                                              fit: BoxFit.cover,
+                                                            );
+                                                          }
+                                                          // Si hay error de carga pero la carta es válida, mostrar back-card.png en lugar del icono de error
+                                                          return Image.asset(
+                                                            'lib/assets/back-card.png',
+                                                            fit: BoxFit.cover,
+                                                          );
+                                                        },
+                                                      ),
+                                                    ),
                                                   ),
-                                                ),
+                                                  // Quantity badge - only show if quantity > 1
+                                                  if (userCard.quantity > 1)
+                                                    Positioned(
+                                                      bottom: 4,
+                                                      right: 4,
+                                                      child: Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                        decoration: BoxDecoration(
+                                                          color: Colors.yellow,
+                                                          borderRadius: BorderRadius.circular(8),
+                                                          border: Border.all(
+                                                            color: Colors.black,
+                                                            width: 1,
+                                                          ),
+                                                        ),
+                                                        child: Text(
+                                                          'x${userCard.quantity}',
+                                                          style: const TextStyle(
+                                                            color: Colors.black,
+                                                            fontSize: 10,
+                                                            fontWeight: FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                ],
                                               ),
                                             ),
                                           ),

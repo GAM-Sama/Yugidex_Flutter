@@ -105,7 +105,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'YuGiOh Card Manager',
+        title: 'Yugidex',
         theme: AppTheme.darkTheme, // Tu tema personalizado
         home: const SplashScreen(),
       ),

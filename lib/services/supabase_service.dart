@@ -1,116 +1,115 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// Asumo que tienes un modelo para la carta en sí (Card) y otro para la
-// carta en la colección del usuario (UserCard), que puede incluir detalles como cantidad, condición, etc.
+// Import your models
 import '../models/card_model.dart';
-import '../models/user_card_model.dart'; // Necesitarás crear este modelo
+import '../models/user_card_model.dart'; // Ensure this model exists and path is correct
 
 class SupabaseService {
   final SupabaseClient _client = Supabase.instance.client;
 
-  // --- MÉTODOS EXISTENTES (NO SE TOCAN) ---
-
-  /// Obtiene la lista COMPLETA de cartas desde la tabla de Supabase.
-  /// Útil para un catálogo general, no para la colección de un usuario.
+  /// Fetches the COMPLETE list of cards from the Supabase table.
+  /// Useful for a general catalog, not a user's collection.
   Future<List<Card>> getCards() async {
     try {
-      final List<Map<String, dynamic>> data =
-          await _client.from('Cartas').select();
-
+      final List<Map<String, dynamic>> data = await _client.from('Cartas').select();
       if (data.isNotEmpty) {
         final cards = data.map((item) => Card.fromJson(item)).toList();
-        debugPrint('✅ Se han obtenido ${cards.length} cartas de Supabase.');
+        debugPrint('✅ Fetched ${cards.length} cards from Supabase.');
         return cards;
       }
       return [];
     } catch (e) {
-      debugPrint('❌ Error en SupabaseService.getCards: $e');
-      throw Exception('Fallo al cargar las cartas desde Supabase.');
+      debugPrint('❌ Error in SupabaseService.getCards: $e');
+      throw Exception('Failed to load cards from Supabase.');
     }
   }
 
-  /// Obtiene solo las cartas del usuario actual que coinciden con un jobId específico.
-  /// Nota: Este método NO se usa para cartas procesadas, solo para la colección permanente del usuario.
-  Future<List<UserCard>> getMyCardsByJobId(String jobId) async {
-    // Este método no es necesario para el flujo de cartas procesadas
-    // Las cartas procesadas se muestran directamente desde lotes_procesados
-    debugPrint('⚠️ getMyCardsByJobId no se usa para cartas procesadas');
-    return [];
-  }
-
-  /// Obtiene solo las cartas procesadas en un lote específico (sin filtrar por usuario).
-  /// Este método obtiene las cartas directamente desde la tabla 'lotes_procesados'.
+  /// Fetches only the cards processed in a specific batch (without user filtering).
+  /// This method gets cards directly from the 'lotes_procesados' table.
   Future<List<Card>> getCardsByJobId(String jobId) async {
     try {
-      print('🔥 SupabaseService - getCardsByJobId iniciado para jobId: $jobId');
-      // Obtenemos directamente los datos de cartas procesadas desde lotes_procesados
+      print('🔥 SupabaseService - getCardsByJobId started for jobId: $jobId');
+      // Fetch processed card data directly from lotes_procesados
       final response = await _client
           .from('lotes_procesados')
           .select()
           .eq('job_id', jobId);
 
-      final lotData = response as List<dynamic>;
-      print('🔥 SupabaseService - Datos recibidos de lotes_procesados: ${lotData.length} registros');
+      // Handle potential null response or incorrect type
+      final lotData = response as List<dynamic>? ?? [];
+      print('🔥 SupabaseService - Data received from lotes_procesados: ${lotData.length} records');
 
       if (lotData.isEmpty) {
-        print('⚠️ SupabaseService - No hay datos en lotes_procesados para jobId: $jobId');
+        print('⚠️ SupabaseService - No data in lotes_procesados for jobId: $jobId');
         return [];
       }
 
-      // Crear objetos Card directamente desde los datos de lotes_procesados
-      final cardList = lotData.map((item) {
-        // DEBUG: Ver qué campos están llegando
-        debugPrint('=== DEBUG ITEM FROM LOTES_PROCESADOS ===');
-        debugPrint('Item keys: ${(item as Map<String, dynamic>).keys.toList()}');
-        debugPrint('ATK field: "${item['ATK']}" (type: ${item['ATK']?.runtimeType})');
-        debugPrint('DEF field: "${item['DEF']}" (type: ${item['DEF']?.runtimeType})');
-        debugPrint('Nivel_Rank_Link field: "${item['Nivel_Rank_Link']}" (type: ${item['Nivel_Rank_Link']?.runtimeType})');
-        debugPrint('Tipo field: "${item['Tipo']}" (type: ${item['Tipo']?.runtimeType})');
-        debugPrint('Subtipo field: "${item['Subtipo']}" (type: ${item['Subtipo']?.runtimeType})');
-        debugPrint('Atributo field: "${item['Atributo']}" (type: ${item['Atributo']?.runtimeType})');
-        debugPrint('Marco_Carta field: "${item['Marco_Carta']}" (type: ${item['Marco_Carta']?.runtimeType})');
+      // Create Card objects directly from lotes_procesados data
+      final cardList = lotData.map((itemMap) {
+        // Ensure itemMap is a Map before proceeding
+        if (itemMap is! Map<String, dynamic>) {
+           print('❌ SupabaseService - Invalid item format in lotes_procesados: $itemMap');
+           return null; // Skip invalid items
+        }
+        final item = itemMap;
+        try {
+          // Parse fields safely, handling potential type mismatches
+          return Card(
+            idCarta: item['ID_Carta']?.toString() ?? '',
+            cantidad: 1, // Default quantity for processed cards display
+            nombre: item['Nombre']?.toString(),
+            imagen: item['Imagen']?.toString(),
+            marcoCarta: item['Marco_Carta']?.toString(),
+            tipo: item['Tipo']?.toString(),
+            // Safely handle Subtipo which might be List or String
+            subtipo: (item['Subtipo'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? (item['Subtipo'] != null ? [item['Subtipo'].toString()] : null),
+            atributo: item['Atributo']?.toString(),
+            clasificacion: item['Clasificacion']?.toString(),
+            // Simplify description parsing
+            descripcion: item['Descripcion'] != null ? {'texto': item['Descripcion'].toString()} : null,
+            atk: item['ATK']?.toString(),
+            def: item['DEF']?.toString(),
+            // Safely parse nivelRankLink as int, handling String or int
+            nivelRankLink: item['Nivel_Rank_Link'] is int
+                ? item['Nivel_Rank_Link']
+                : (item['Nivel_Rank_Link'] is String ? int.tryParse(item['Nivel_Rank_Link']) : null),
+            // Ensure ratioEnlace is int
+            ratioEnlace: item['ratio_enlace'] is int ? item['ratio_enlace'] : null,
+            // Safely handle Rareza which might be List or String
+            rareza: (item['Rareza'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? (item['Rareza'] != null ? [item['Rareza'].toString()] : null),
+            setExpansion: item['Set_Expansion']?.toString(),
+            iconoCarta: item['Icono Carta']?.toString() ?? item['icono_carta']?.toString(),
+          );
+        } catch(e) {
+            print('❌ SupabaseService - Error parsing item into Card: $e');
+            print('❌ Problematic item data: $item');
+            return null; // Skip items that fail parsing
+        }
+      }).whereType<Card>().toList(); // Filter out any nulls from parsing errors
 
-        return Card(
-          idCarta: item['ID_Carta']?.toString() ?? '',
-          cantidad: item['Cantidad'] as int? ?? 1,
-          nombre: item['Nombre']?.toString(),
-          imagen: item['Imagen']?.toString(),
-          marcoCarta: item['Marco_Carta']?.toString(),
-          tipo: item['Tipo']?.toString(),
-          subtipo: item['Subtipo'] != null ? [item['Subtipo'].toString()] : null,
-          atributo: item['Atributo']?.toString(),
-          descripcion: item['Descripcion'] != null ? {'texto': item['Descripcion'].toString()} : null,
-          atk: item['ATK']?.toString(),
-          def: item['DEF']?.toString(),
-          nivelRankLink: item['Nivel_Rank_Link'] as int?,
-          ratioEnlace: item['ratio_enlace'] as int?,
-          rareza: item['Rareza'] != null ? [item['Rareza'].toString()] : null,
-          setExpansion: item['Set_Expansion']?.toString(),
-          iconoCarta: item['Icono Carta']?.toString(),
-        );
-      }).toList();
-
-      debugPrint('✅ SupabaseService - Obtenidas ${cardList.length} cartas procesadas para el job_id $jobId.');
+      debugPrint('✅ SupabaseService - Fetched ${cardList.length} valid processed cards for job_id $jobId.');
       return cardList;
     } catch (e) {
-      debugPrint('❌ SupabaseService - Error al obtener las cartas procesadas por job_id: $e');
-      return [];
+      debugPrint('❌ SupabaseService - Error fetching processed cards by job_id: $e');
+      // Rethrow a more specific exception
+      throw Exception('Failed to load processed cards for job $jobId.');
     }
   }
 
-  // --- NUEVOS MÉTODOS PARA LA COLECCIÓN DEL USUARIO ---
 
-  /// Obtiene la colección de cartas personal del usuario que ha iniciado sesión.
+  /// Fetches the personal card collection of the currently logged-in user.
   Future<List<UserCard>> getMyCardCollection() async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) {
-      debugPrint('⚠️ No se puede obtener la colección: no hay usuario logueado.');
+      debugPrint('⚠️ Cannot get collection: no logged-in user.');
+      // Consider throwing an AuthException or returning an empty list based on app logic
       return [];
+      // throw Exception('User not authenticated.');
     }
 
     try {
-      // Hacemos un join para obtener los datos de la carta y de la colección del usuario.
+      // Perform a join to get data from both user_cards and the related Cartas entry.
       final response = await _client
           .from('user_cards')
           .select('''
@@ -119,88 +118,125 @@ class SupabaseService {
             condition,
             notes,
             acquired_date,
-            Cartas ( * )
+            Cartas ( * ) 
           ''')
           .eq('user_id', userId);
 
-      final List<dynamic> data = response as List<dynamic>;
-      print('✅ Respuesta de Supabase: ${data.length} elementos');
+       // Explicitly cast to List<Map<String, dynamic>> for type safety
+      final List<Map<String, dynamic>> data = List<Map<String, dynamic>>.from(response as List);
 
-      // Log detallado del primer elemento para debugging
-      if (data.isNotEmpty) {
-        print('✅ Primer elemento de respuesta: ${data.first}');
-        // También vamos a ver qué contiene el objeto Cartas dentro del primer elemento
-        final firstItem = data.first as Map<String, dynamic>;
-        print('✅ Keys del primer elemento: ${firstItem.keys.toList()}');
-        if (firstItem.containsKey('Cartas') && firstItem['Cartas'] != null) {
-          print('✅ Objeto Cartas del primer elemento: ${firstItem['Cartas']}');
-          final cartasObj = firstItem['Cartas'] as Map<String, dynamic>;
-          print('✅ Keys del objeto Cartas: ${cartasObj.keys.toList()}');
-          print('✅ Valores del objeto Cartas:');
-          cartasObj.forEach((key, value) {
-            print('  $key: $value (${value.runtimeType})');
-          });
-        } else {
-          print('❌ No se encontró el objeto Cartas en el primer elemento');
-        }
-      }
+      print('✅ Supabase getMyCardCollection response: ${data.length} items');
+      if (data.isNotEmpty) print('✅ First response item sample: ${data.first}');
 
       final cardList = data
-          .where((item) => item != null && item is Map<String, dynamic>)
-          .where((item) => item['Cartas'] != null) // Filtrar solo registros con cartas válidas
+          // Ensure the 'Cartas' join object exists and is a map
+          .where((item) => item['Cartas'] != null && item['Cartas'] is Map<String, dynamic>)
           .map((item) {
             try {
-              final userCard = UserCard.fromJson(item as Map<String, dynamic>);
-              print('✅ UserCard creada correctamente: ${userCard.cardDetails.nombre ?? 'Sin nombre'}');
-              return userCard;
+              // UserCard.fromJson handles parsing the nested 'Cartas' object
+              return UserCard.fromJson(item);
             } catch (e) {
-              print('❌ Error al crear UserCard desde item: $e');
-              print('❌ Item problemático: $item');
-              print('❌ Item keys: ${(item as Map<String, dynamic>).keys.toList()}');
-              if (item.containsKey('Cartas')) {
-                print('❌ Cartas object: ${item['Cartas']}');
-                print('❌ Cartas keys: ${(item['Cartas'] as Map<String, dynamic>).keys.toList()}');
-              }
-              // En lugar de devolver null, vamos a devolver la excepción para que se propague
-              throw Exception('Error creando UserCard: $e. Datos: $item');
+               print('❌ Error creating UserCard from item in getMyCardCollection: $e');
+               print('❌ Problematic item data: $item');
+               // Return null to filter out problematic items later
+               return null;
             }
           })
+          .whereType<UserCard>() // Filter out any nulls resulted from parsing errors
           .toList();
 
-      debugPrint('✅ Obtenidas ${cardList.length} cartas válidas para el usuario $userId.');
+      debugPrint('✅ Fetched ${cardList.length} valid cards for user $userId.');
       return cardList;
-    } catch (e) {
-      debugPrint('❌ Error al obtener la colección de cartas del usuario: $e');
-      debugPrint('❌ Stack trace: ${StackTrace.current}');
-      return [];
+    } catch (e, stacktrace) { // Catch stacktrace for debugging
+      debugPrint('❌ Error getting user card collection: $e');
+      debugPrint('❌ Stack trace: $stacktrace');
+      // Rethrow a more specific exception
+      throw Exception('Failed to load user collection from database.');
     }
   }
 
-  /// Añade una carta a la colección del usuario actual.
+  /// Adds a card to the current user's collection.
   Future<void> addCardToMyCollection({
-    required int cardId, // El id de la tabla 'Cartas'
+    required int cardId, // The id from the 'Cartas' table
     int quantity = 1,
-    String condition = 'mint',
+    String condition = 'mint', // Default condition
     String? notes,
   }) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) {
-       debugPrint('⚠️ No se puede añadir la carta: no hay usuario logueado.');
-       return;
+       debugPrint('⚠️ Cannot add card: no logged-in user.');
+       throw Exception('User not authenticated.');
     }
 
     try {
+      // Assumes your 'user_cards' table columns are named correctly
       await _client.from('user_cards').insert({
         'user_id': userId,
-        'carta_id': cardId,
+        'carta_id': cardId, // Foreign key to 'Cartas' table
         'cantidad': quantity,
         'condition': condition,
         'notes': notes,
+        // 'acquired_date' likely defaults to now() in the database
       });
-      debugPrint('✅ Carta con id $cardId añadida a la colección del usuario $userId.');
+      debugPrint('✅ Card with id $cardId added to collection for user $userId.');
     } catch (e) {
-      debugPrint('❌ Error al añadir la carta a la colección: $e');
-      rethrow;
+      debugPrint('❌ Error adding card to collection: $e');
+      // Rethrow for the ViewModel to handle
+      throw Exception('Failed to add card to collection: ${e.toString()}');
     }
   }
+
+  // --- NEW METHOD TO DELETE/UPDATE QUANTITY ---
+  /// Deletes or updates the quantity of a specific card entry in the user's collection.
+  Future<void> deleteOrUpdateUserCardQuantity({
+    required String userCardId, // The 'id' (UUID) from the 'user_cards' table
+    required int quantityToDelete,
+    required int currentQuantity,
+  }) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) {
+      throw Exception('User not authenticated.');
+    }
+
+    try {
+      if (quantityToDelete >= currentQuantity) {
+        // --- DELETE THE ROW ---
+        print('🔥 SupabaseService - Deleting user_card with id: $userCardId');
+        final response = await _client
+            .from('user_cards')
+            .delete()
+            .eq('id', userCardId) // Ensure 'id' is your primary key for user_cards
+            .eq('user_id', userId); // Security check
+
+        // Optional: Check response if needed, Supabase delete doesn't return data by default
+        print('✅ SupabaseService - Row deleted.');
+
+      } else {
+        // --- UPDATE QUANTITY ---
+        final newQuantity = currentQuantity - quantityToDelete;
+        print('🔥 SupabaseService - Updating quantity of user_card $userCardId to: $newQuantity');
+        final response = await _client
+            .from('user_cards')
+            .update({'cantidad': newQuantity})
+            .eq('id', userCardId)
+            .eq('user_id', userId)
+            .select(); // Select to confirm update if needed
+
+        // Optional: Check response if needed
+        print('✅ SupabaseService - Quantity updated. Response: $response');
+      }
+    } on PostgrestException catch (e) {
+      // Catch specific Supabase errors
+      debugPrint('❌ Supabase error deleting/updating quantity: ${e.message}');
+      debugPrint('❌ Error code: ${e.code}');
+      debugPrint('❌ Details: ${e.details}');
+      // Provide a more user-friendly message or rethrow specific error type
+      throw Exception('Error updating collection in database: ${e.message}');
+    } catch (e) {
+      // Catch any other unexpected errors
+      debugPrint('❌ Unexpected error deleting/updating quantity: $e');
+      throw Exception('Unexpected error updating collection.');
+    }
+  }
+  // --- END NEW METHOD ---
 }

@@ -1,17 +1,24 @@
-import 'card_model.dart'; // Importamos tu modelo de carta existente.
+import 'card_model.dart'; // Import your existing Card model.
 
-/// Representa una carta dentro de la colección de un usuario.
-/// Contiene tanto los datos de la carta en sí (desde la tabla 'Cartas')
-/// como los metadatos de la colección del usuario (desde 'user_cards').
+// --- Added Typedef ---
+/// Helper for copyWith to allow explicitly setting fields to null.
+/// Usage: copyWith(notes: () => null)
+typedef ValueGetter<T> = T Function();
+
+/// Represents a card within a user's collection.
+/// Contains both the card details (from 'Cartas')
+/// and the user's collection metadata (from 'user_cards').
 class UserCard {
-  final String userCardId; // El UUID de la entrada en la tabla 'user_cards'
+  // --- Marked properties as final ---
+  final String userCardId; // The UUID from the 'user_cards' table entry
   final int quantity;
   final String condition;
   final String? notes;
   final DateTime? acquiredDate;
-  final Card cardDetails; // Objeto anidado con todos los detalles de la carta.
+  final Card cardDetails; // Nested object with all card details.
 
-  UserCard({
+  // --- Made constructor const ---
+  const UserCard({
     required this.userCardId,
     required this.quantity,
     required this.condition,
@@ -20,52 +27,60 @@ class UserCard {
     required this.cardDetails,
   });
 
-  /// Factory constructor para crear una instancia de UserCard desde un JSON.
-  /// Este JSON es el resultado de la consulta con JOIN que hicimos en SupabaseService.
+  /// Factory constructor to create a UserCard instance from JSON.
+  /// This JSON is the result of the JOIN query in SupabaseService.
   factory UserCard.fromJson(Map<String, dynamic> json) {
-    // El JSON tiene esta estructura:
-    // {
-    //   "id": "...",
-    //   "cantidad": 1,
-    //   "condition": "mint",
-    //   "notes": null,
-    //   "acquired_date": "...",
-    //   "Cartas": { ...objeto completo de la carta... }
-    // }
-
-    // Validaciones básicas
+    // Basic validation
     if (json['id'] == null) {
-      throw Exception('Campo id es requerido en UserCard');
+      throw Exception('Field id is required in UserCard');
+    }
+    if (json['Cartas'] == null || json['Cartas'] is! Map<String, dynamic>) {
+       print('❌ Field "Cartas" is null or not a map in UserCard.fromJson');
+       print('❌ Received data: $json');
+       // Handle this case - maybe throw, maybe return a default Card?
+       // Throwing is often better to catch data integrity issues early.
+       throw Exception('Field "Cartas" is missing or invalid in UserCard data');
     }
 
+
+    try {
+      return UserCard(
+        userCardId: json['id']?.toString() ?? '',
+        quantity: json['cantidad'] as int? ?? 1,
+        condition: json['condition']?.toString() ?? 'mint',
+        notes: json['notes']?.toString(),
+        acquiredDate: json['acquired_date'] != null
+            ? DateTime.tryParse(json['acquired_date'].toString())
+            : null,
+        // Use the Card.fromJson factory for the nested 'Cartas' object.
+        cardDetails: Card.fromJson(json['Cartas'] as Map<String, dynamic>),
+      );
+    } catch (e) {
+       print('❌ Error during UserCard.fromJson parsing: $e');
+       print('❌ Problematic JSON: $json');
+       // Rethrow or handle error appropriately
+       rethrow;
+    }
+  }
+
+  // --- Added copyWith method ---
+  UserCard copyWith({
+    String? userCardId,
+    int? quantity,
+    String? condition,
+    ValueGetter<String?>? notes, // Use ValueGetter to allow setting null
+    ValueGetter<DateTime?>? acquiredDate, // Use ValueGetter to allow setting null
+    Card? cardDetails,
+  }) {
     return UserCard(
-      userCardId: json['id']?.toString() ?? '',
-      quantity: json['cantidad'] as int? ?? 1,
-      condition: json['condition']?.toString() ?? 'mint',
-      notes: json['notes']?.toString(),
-      acquiredDate: json['acquired_date'] != null
-          ? DateTime.tryParse(json['acquired_date'].toString())
-          : null,
-      // Aquí está la magia: usamos el fromJson de tu modelo Card existente
-      // para parsear el objeto anidado 'Cartas'.
-      cardDetails: json['Cartas'] != null && json['Cartas'] is Map<String, dynamic>
-          ? (() {
-              try {
-                final card = Card.fromJson(json['Cartas'] as Map<String, dynamic>);
-                print('✅ Card creada exitosamente para: ${card.nombre ?? 'Sin nombre'}');
-                return card;
-              } catch (e) {
-                print('❌ Error creando Card desde Cartas: $e');
-                print('❌ Datos de Cartas que fallaron: ${json['Cartas']}');
-                // En lugar de devolver una Card vacía, vamos a devolver una con datos de respaldo
-                return Card.fromJson({});
-              }
-            })()
-          : (() {
-              print('❌ Cartas es null o inválido en UserCard.fromJson');
-              print('❌ Datos recibidos: $json');
-              return Card.fromJson({});
-            })(),
+      userCardId: userCardId ?? this.userCardId,
+      quantity: quantity ?? this.quantity,
+      condition: condition ?? this.condition,
+      // If notes() is provided, use its result (which could be null), otherwise keep the current notes
+      notes: notes != null ? notes() : this.notes,
+      // If acquiredDate() is provided, use its result, otherwise keep the current date
+      acquiredDate: acquiredDate != null ? acquiredDate() : this.acquiredDate,
+      cardDetails: cardDetails ?? this.cardDetails,
     );
   }
 }

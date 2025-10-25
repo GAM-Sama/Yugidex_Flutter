@@ -246,7 +246,7 @@ class _NewCardsListScreenState extends State<NewCardsListScreen> {
               // --- Estructura principal con Toolbar restaurada ---
               return Row(
                 children: [
-                  CardDetailPanel(cardDetails: processedVM.selectedCard),
+                  CardDetailPanel(card: processedVM.selectedCard),
                   Container(width: 1, color: theme.dividerColor),
                   Expanded(
                     flex: 5,
