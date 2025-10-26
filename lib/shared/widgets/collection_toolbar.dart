@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart'; // Using Lucide for consistency
-import 'package:yugioh_scanner/core/theme/app_theme.dart'; // Make sure this path is correct
+import '../../core/theme/app_theme.dart'; // Make sure this path is correct
 import 'package:yugioh_scanner/models/card_filters.dart'; // Import Enums SortBy and SortDirection
 
 class CollectionToolbar extends StatelessWidget {

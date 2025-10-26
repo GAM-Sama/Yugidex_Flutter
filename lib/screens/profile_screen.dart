@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:yugioh_scanner/core/theme/app_theme.dart';
+import '../core/theme/app_theme.dart';
 import 'package:yugioh_scanner/shared/widgets/custom_panel.dart';
 import '../features/auth/presentation/view_models/auth_view_model.dart';
 import 'auth/login_screen.dart';

@@ -7,7 +7,7 @@ import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:yugioh_scanner/shared/widgets/card_detail_panel.dart';
 import 'package:yugioh_scanner/shared/widgets/collection_toolbar.dart';
 import 'package:yugioh_scanner/shared/widgets/filters_dialog.dart';
-import 'package:yugioh_scanner/core/theme/app_theme.dart';
+import '../core/theme/app_theme.dart';
 import 'package:yugioh_scanner/view_models/card_list_view_model.dart';
 import 'package:yugioh_scanner/view_models/card_filters_view_model.dart';
 import 'package:yugioh_scanner/models/card_filters.dart'; // Imports SortBy/SortDirection/CardFilters

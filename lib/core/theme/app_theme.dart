@@ -98,7 +98,7 @@ class AppTheme {
       ),
 
       // Card theme
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: AppColors.cardBackground,
         elevation: 2,
         margin: const EdgeInsets.all(AppSpacing.sm),
@@ -246,7 +246,7 @@ class AppTheme {
 
       // --- ¡BONUS AÑADIDO! ---
       // Dialog theme
-      dialogTheme: DialogTheme(
+      dialogTheme: DialogThemeData(
         backgroundColor: AppColors.cardBackground, // Fondo de panel
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),

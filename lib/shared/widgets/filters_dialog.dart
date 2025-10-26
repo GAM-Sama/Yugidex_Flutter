@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:yugioh_scanner/core/theme/app_theme.dart';
+import '../../core/theme/app_theme.dart';
 import 'package:yugioh_scanner/view_models/card_filters_view_model.dart'; // Asegúrate que la ruta es correcta
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';

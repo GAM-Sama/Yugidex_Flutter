@@ -1,7 +1,7 @@
 // lib/shared/widgets/custom_panel.dart
 
 import 'package:flutter/material.dart';
-import 'package:yugioh_scanner/core/theme/app_theme.dart'; // Importa tu tema
+import '../../core/theme/app_theme.dart'; // Importa tu tema
 
 /// Un widget reutilizable que muestra un panel con el estilo
 /// de fondo y bordes redondeados definidos en el AppTheme.

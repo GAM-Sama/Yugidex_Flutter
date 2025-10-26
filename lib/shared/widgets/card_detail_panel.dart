@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart' hide Card;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart'; // Needed to call the ViewModel
-import 'package:yugioh_scanner/core/theme/app_theme.dart';
+import '../../core/theme/app_theme.dart';
 import 'package:yugioh_scanner/models/card_model.dart';
 import 'package:yugioh_scanner/models/user_card_model.dart'; // Import UserCard
 import 'package:yugioh_scanner/view_models/card_list_view_model.dart'; // Import the ViewModel
@@ -348,8 +348,9 @@ class _CardDetailPanelState extends State<CardDetailPanel> { // Changed to State
      if (card.marcoCarta != null && card.marcoCarta!.isNotEmpty && card.marcoCarta != 'null') {
        final marcoLower = card.marcoCarta!.toLowerCase();
        String marcoDisplay;
-       if (marcoLower.contains('monstruo') || marcoLower.contains('monster')) marcoDisplay = 'Monstruo';
-       else if (marcoLower.contains('magia') || marcoLower.contains('spell')) marcoDisplay = 'Magia';
+       if (marcoLower.contains('monstruo') || marcoLower.contains('monster')) {
+         marcoDisplay = 'Monstruo';
+       } else if (marcoLower.contains('magia') || marcoLower.contains('spell')) marcoDisplay = 'Magia';
        else if (marcoLower.contains('trampa') || marcoLower.contains('trap')) marcoDisplay = 'Trampa';
        else marcoDisplay = card.marcoCarta!;
        tags.add(_buildTag(context, marcoDisplay, finalColors.backgroundColor, finalColors.textColor));
@@ -477,8 +478,9 @@ class _CardDetailPanelState extends State<CardDetailPanel> { // Changed to State
   String _getDescriptionText(Map<String, dynamic>? descripcion) {
      String? rawDescription;
      if (descripcion == null || descripcion.isEmpty) return 'Descripción no disponible';
-     if (descripcion.containsKey('texto') && descripcion['texto'] != null) rawDescription = descripcion['texto'].toString();
-     else {
+     if (descripcion.containsKey('texto') && descripcion['texto'] != null) {
+       rawDescription = descripcion['texto'].toString();
+     } else {
        String? extractDescription() {
          if (descripcion.containsKey('es') && descripcion['es'] != null) return descripcion['es'].toString();
          if (descripcion.containsKey('ES') && descripcion['ES'] != null) return descripcion['ES'].toString();
