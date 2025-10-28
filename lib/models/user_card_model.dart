@@ -35,13 +35,8 @@ class UserCard {
       throw Exception('Field id is required in UserCard');
     }
     if (json['Cartas'] == null || json['Cartas'] is! Map<String, dynamic>) {
-       print('❌ Field "Cartas" is null or not a map in UserCard.fromJson');
-       print('❌ Received data: $json');
-       // Handle this case - maybe throw, maybe return a default Card?
-       // Throwing is often better to catch data integrity issues early.
-       throw Exception('Field "Cartas" is missing or invalid in UserCard data');
+      throw Exception('Field "Cartas" is missing or invalid in UserCard data');
     }
-
 
     try {
       return UserCard(
@@ -56,10 +51,7 @@ class UserCard {
         cardDetails: Card.fromJson(json['Cartas'] as Map<String, dynamic>),
       );
     } catch (e) {
-       print('❌ Error during UserCard.fromJson parsing: $e');
-       print('❌ Problematic JSON: $json');
-       // Rethrow or handle error appropriately
-       rethrow;
+      rethrow;
     }
   }
 

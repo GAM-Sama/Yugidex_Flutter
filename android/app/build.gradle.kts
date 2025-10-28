@@ -11,7 +11,7 @@ if (localPropertiesFile.exists()) {
 
 val flutterVersionCode = localProperties.getProperty("flutter.versionCode") ?: "1"
 val flutterVersionName = localProperties.getProperty("flutter.versionName") ?: "1.0"
-val kotlin_version = "1.9.22" // Kotlin version - adjust as needed
+val kotlin_version = "2.1.0" // Kotlin version - adjust as needed
 
 plugins {
     id("com.android.application")
@@ -82,6 +82,11 @@ android {
         //     signingConfig = signingConfigs.getByName("debug")
         // }
     }
+
+    buildFeatures {
+        // Enable build config for ML Kit configuration
+        buildConfig = true
+    }
 }
 
 flutter {
@@ -91,6 +96,11 @@ flutter {
 // Add dependencies block if missing (usually needed)
 dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version") // Example dependency
+
+    // ML Kit specific configuration to prevent automatic model downloads during build
+    implementation("com.google.android.gms:play-services-base:18.4.0")
+    implementation("com.google.mlkit:text-recognition:16.0.0")
+
     // Add other dependencies here if needed
     // implementation("androidx.multidex:multidex:2.0.1") // If using multidex
 }

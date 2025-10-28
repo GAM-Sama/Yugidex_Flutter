@@ -97,8 +97,10 @@ La aplicación ofrece un sistema completo de gestión de colecciones:
    ```
    SUPABASE_URL=https://your-project.supabase.co
    SUPABASE_KEY=your-anon-key
-   WEBHOOK_URL=https://your-webhook-url.com
+   N8N_WEBHOOK_URL=https://your-webhook-url.com
    ```
+
+   📖 **Para configuración detallada de Supabase, consulta [SUPABASE_SETUP.md](SUPABASE_SETUP.md)**
 
 4. **Ejecutar la Aplicación**
    ```bash
@@ -277,6 +279,7 @@ yugioh_scanner/
 3. **Errores de Sincronización**:
    - Verificar credenciales de Supabase
    - Comprobar conexión a internet
+   - **📖 Si ves "Connection timed out", consulta [SUPABASE_SETUP.md](SUPABASE_SETUP.md)**
    - La aplicación funciona en modo offline con funcionalidad limitada
 
 4. **Problemas de Interfaz**:
@@ -297,6 +300,12 @@ yugioh_scanner/
 - **Ordenación Inteligente**: Agrupación automática por tipo de carta
 - **Interfaz Intuitiva**: Diálogos de filtros con categorías organizadas
 - **Rendimiento Optimizado**: Filtrado en tiempo real sin bloqueos
+
+### Manejo de Errores de Conexión (v2.2)
+- **Detección Automática**: Identificación inteligente de errores de conexión Supabase
+- **Pantalla de Error Amigable**: Interfaz clara con instrucciones para resolver problemas
+- **Reintento Automático**: Botón para reintentar la conexión sin reiniciar la app
+- **Mensajes Descriptivos**: Explicaciones detalladas de cada tipo de error de conexión
 
 ### Panel de Detalles Corregido (v1.9)
 - **Cartas Link**: Muestra "Link:" con ratioEnlace correcto
@@ -337,4 +346,4 @@ Para soporte técnico, reportar errores o solicitar nuevas funcionalidades, por 
 
 **Desarrollado con dedicación para la comunidad de jugadores de Yu-Gi-Oh!**
 
-*Versión 2.1 - Yugidex*
+*Versión 2.2 - Yugidex*

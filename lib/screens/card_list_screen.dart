@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart' hide Card; // Avoid conflict if Card model exists
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+// import 'package:cached_network_image/cached_network_image.dart'; // Ya no es necesario aquí
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
 // --- Make sure these imports are correct based on your project structure ---
@@ -13,6 +13,9 @@ import 'package:yugioh_scanner/view_models/card_filters_view_model.dart';
 import 'package:yugioh_scanner/models/card_filters.dart'; // Imports SortBy/SortDirection/CardFilters
 import 'package:yugioh_scanner/models/user_card_model.dart'; // Imports UserCardModel
 import 'package:yugioh_scanner/models/card_model.dart'; // Imports your 'Card' class
+
+// --- NUEVO IMPORT AÑADIDO ---
+import 'package:yugioh_scanner/shared/widgets/flippable_card.dart'; 
 // --- End of imports ---
 
 class CardListScreen extends StatefulWidget {
@@ -39,10 +42,12 @@ class _CardListScreenState extends State<CardListScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    // Limpia el ViewModel cuando la pantalla se desecha
+    context.read<CardListViewModel>().dispose();
     super.dispose();
   }
 
-  // --- HELPER FUNCTION FOR SORTING BY CARD TYPE (Sin cambios) ---
+  // --- HELPER FUNCTION FOR SORTING BY CARD TYPE (SIN CAMBIOS) ---
   String _getCardSortValue(Card card) {
     const Map<String, int> typeOrder = {'Monster': 1, 'Spell': 2, 'Trap': 3};
     const Map<String, int> monsterSubtypeOrder = {
@@ -176,86 +181,58 @@ class _CardListScreenState extends State<CardListScreen> {
                                     ),
                                     itemCount: processedCards.length,
                                     itemBuilder: (context, index) {
-                                      final userCard = processedCards[index];
-                                      final Card card = userCard.cardDetails;
-                                      final bool isSelected = cardVM.selectedCard?.cardDetails.idCarta == card.idCarta;
+  final userCard = processedCards[index];
+  final Card card = userCard.cardDetails;
+  final bool isSelected = cardVM.selectedCard?.cardDetails.idCarta == card.idCarta;
 
-                                      return AnimationConfiguration.staggeredGrid(
-                                        position: index,
-                                        duration: const Duration(milliseconds: 375),
-                                        columnCount: 6,
-                                        child: ScaleAnimation(
-                                          child: FadeInAnimation(
-                                            child: GestureDetector(
-                                              onTap: () => cardVM.selectCard(userCard),
-                                              child: Stack(
-                                                children: [
-                                                  Container(
-                                                    decoration: BoxDecoration(
-                                                      borderRadius: BorderRadius.circular(AppSpacing.sm),
-                                                      border: Border.all(
-                                                        color: isSelected
-                                                            ? AppColors.primary
-                                                            : Colors.transparent,
-                                                        width: 2.5,
-                                                      ),
-                                                    ),
-                                                    child: ClipRRect(
-                                                      borderRadius: BorderRadius.circular(AppSpacing.xs),
-                                                      child: CachedNetworkImage(
-                                                        imageUrl: card.imagen ?? '',
-                                                        fit: BoxFit.cover,
-                                                        placeholder: (c, u) =>
-                                                            Container(color: theme.colorScheme.surface),
-                                                        errorWidget: (c, u, e) {
-                                                          // Si la carta no tiene nombre (es fallida) o no tiene imagen, mostrar back-card.png
-                                                          if (card.nombre == null || card.nombre!.isEmpty || card.imagen == null || card.imagen!.isEmpty) {
-                                                            return Image.asset(
-                                                              'lib/assets/back-card.png',
-                                                              fit: BoxFit.cover,
-                                                            );
-                                                          }
-                                                          // Si hay error de carga pero la carta es válida, mostrar back-card.png en lugar del icono de error
-                                                          return Image.asset(
-                                                            'lib/assets/back-card.png',
-                                                            fit: BoxFit.cover,
-                                                          );
-                                                        },
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  // Quantity badge - only show if quantity > 1
-                                                  if (userCard.quantity > 1)
-                                                    Positioned(
-                                                      bottom: 4,
-                                                      right: 4,
-                                                      child: Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                        decoration: BoxDecoration(
-                                                          color: Colors.yellow,
-                                                          borderRadius: BorderRadius.circular(8),
-                                                          border: Border.all(
-                                                            color: Colors.black,
-                                                            width: 1,
-                                                          ),
-                                                        ),
-                                                        child: Text(
-                                                          'x${userCard.quantity}',
-                                                          style: const TextStyle(
-                                                            color: Colors.black,
-                                                            fontSize: 10,
-                                                            fontWeight: FontWeight.bold,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    },
+  // Directamente devolvemos el GestureDetector + Stack + FlippableCard
+  return GestureDetector(
+    onTap: () => cardVM.selectCard(userCard),
+    child: Stack(
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppSpacing.sm),
+            border: Border.all(
+              color: isSelected
+                  ? AppColors.primary
+                  : Colors.transparent,
+              width: 2.5,
+            ),
+          ),
+          child: FlippableCard(
+            imageUrl: card.imagen ?? '',
+            cardBackAsset: 'assets/back-card.png', 
+            fit: BoxFit.cover,
+            borderRadius: BorderRadius.circular(AppSpacing.xs),
+            cardData: card, // ¡Importante! Pasar los datos de la carta
+          ),
+        ),
+        if (userCard.quantity > 1)
+          Positioned(
+            bottom: 4,
+            right: 4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.yellow,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.black, width: 1),
+              ),
+              child: Text(
+                'x${userCard.quantity}',
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
+},
                                   ),
                                 ),
                         ),
@@ -272,7 +249,8 @@ class _CardListScreenState extends State<CardListScreen> {
   }
 
   /// Applies all configured filters: search, types, attributes, etc., and sorts the results.
-  List<UserCard> _applyFilters( // <-- Corregido tipo de retorno
+  /// (ESTA FUNCIÓN ESTÁ SIN CAMBIOS, TAL CUAL LA PASASTE)
+  List<UserCard> _applyFilters(
       CardListViewModel cardVM, CardFiltersViewModel filterVM) {
     final filters = filterVM.filters;
     final sortBy = filterVM.sortBy;
@@ -339,6 +317,7 @@ class _CardListScreenState extends State<CardListScreen> {
     }).toList();
 
     // --- ⬇️ 2. SORTING LOGIC MODIFIED ⬇️ ---
+    // (ESTA LÓGICA DE ORDENACIÓN ESTÁ SIN CAMBIOS, TAL CUAL LA PASASTE)
     filteredCards.sort((a, b) {
       final Card cardA = a.cardDetails;
       final Card cardB = b.cardDetails;
@@ -463,6 +442,7 @@ class _CardListScreenState extends State<CardListScreen> {
   }
 
   /// Calculates the number of active filters (excluding search).
+  /// (ESTA FUNCIÓN ESTÁ SIN CAMBIOS, TAL CUAL LA PASASTE)
   int _getActiveFiltersCount(CardFiltersViewModel vm) {
     final f = vm.filters;
     return f.cardTypes.length +
@@ -475,6 +455,7 @@ class _CardListScreenState extends State<CardListScreen> {
   }
 
   /// Shows the sorting options dialog.
+  /// (ESTA FUNCIÓN ESTÁ SIN CAMBIOS, TAL CUAL LA PASASTE)
   void _showSortDialog(BuildContext context, CardFiltersViewModel vm) {
     final theme = Theme.of(context);
     final List<Map<String, dynamic>> sortOptions = [
@@ -505,12 +486,12 @@ class _CardListScreenState extends State<CardListScreen> {
                 leading: Icon(option['icon'] as IconData, color: option['color'] as Color),
                 title: Text(option['label'] as String, style: theme.textTheme.bodyLarge),
                 trailing: isSelected
-                  ? Icon(
-                      vm.sortDirection == SortDirection.asc ? Icons.arrow_upward : Icons.arrow_downward,
-                      color: AppColors.primary,
-                      size: 20,
-                    )
-                  : null,
+                    ? Icon(
+                        vm.sortDirection == SortDirection.asc ? Icons.arrow_upward : Icons.arrow_downward,
+                        color: AppColors.primary,
+                        size: 20,
+                      )
+                    : null,
                 onTap: () {
                   vm.setSort(sortByValue);
                   Navigator.pop(context);
@@ -530,6 +511,7 @@ class _CardListScreenState extends State<CardListScreen> {
   }
 
   /// Shows the filters dialog.
+  /// (ESTA FUNCIÓN ESTÁ SIN CAMBIOS, TAL CUAL LA PASASTE)
   void _showFilterDialog(BuildContext context, CardFiltersViewModel vm) {
     showDialog(
       context: context,

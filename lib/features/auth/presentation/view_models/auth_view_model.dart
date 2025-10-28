@@ -5,13 +5,14 @@ import '../../../../core/utils/base_view_model.dart'; // Adjust path if needed
 import '../../data/repositories/auth_repository.dart';
 
 /// Estados específicos para autenticación
-enum AuthState { uninitialized, authenticated, unauthenticated, loading }
+enum AuthState { uninitialized, authenticated, unauthenticated, loading, connectionError }
 
 class AuthViewModel extends BaseViewModel {
   final AuthRepository _authRepository;
 
   User? _user;
   AuthState _authState = AuthState.uninitialized;
+  String? _connectionErrorMessage;
 
   AuthViewModel(this._authRepository) {
     _initialize();
@@ -20,6 +21,7 @@ class AuthViewModel extends BaseViewModel {
   // Getters públicos
   AuthState get authState => _authState;
   User? get user => _user;
+  String? get connectionErrorMessage => _connectionErrorMessage;
 
   // --- ¡CAMBIO AQUÍ! ---
   // Leemos 'username' en lugar de 'name'
@@ -31,17 +33,34 @@ class AuthViewModel extends BaseViewModel {
 
   void _initialize() {
     // Escuchamos los cambios de autenticación del repositorio
-    _authRepository.authStateChanges.listen((user) {
-      _user = user;
-      if (_user == null) {
-        _authState = AuthState.unauthenticated;
-      } else {
-        // Aseguramos que los datos se lean aquí también si es necesario
-        // (aunque el getter ya lo hace bajo demanda)
-        _authState = AuthState.authenticated;
-      }
-      notifyListeners();
-    });
+    _authRepository.authStateChanges.listen(
+      (user) {
+        _user = user;
+        if (_user == null) {
+          _authState = AuthState.unauthenticated;
+        } else {
+          // Aseguramos que los datos se lean aquí también si es necesario
+          // (aunque el getter ya lo hace bajo demanda)
+          _authState = AuthState.authenticated;
+          _connectionErrorMessage = null; // Limpiamos errores si la conexión funciona
+        }
+        notifyListeners();
+      },
+      onError: (error) {
+        // Manejo específico de errores de conexión
+        if (error.toString().contains('Connection timed out') ||
+            error.toString().contains('SocketException') ||
+            error.toString().contains('AuthRetryableFetchException')) {
+          _authState = AuthState.connectionError;
+          _connectionErrorMessage = 'No se puede conectar a la base de datos. Verifica tu conexión a internet y las credenciales de Supabase.';
+        } else {
+          _authState = AuthState.unauthenticated;
+          _connectionErrorMessage = 'Error de autenticación: ${error.toString()}';
+        }
+        _user = null;
+        notifyListeners();
+      },
+    );
     // Forzamos una comprobación inicial por si ya hay un usuario
      _checkCurrentUser();
   }
@@ -55,6 +74,15 @@ class AuthViewModel extends BaseViewModel {
         _authState = AuthState.authenticated;
       }
       notifyListeners();
+  }
+
+  /// Método para reintentar la conexión
+  void retryConnection() {
+    _authState = AuthState.loading;
+    _connectionErrorMessage = null;
+    notifyListeners();
+    // Forzar una nueva verificación
+    _checkCurrentUser();
   }
 
 

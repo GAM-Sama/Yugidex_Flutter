@@ -8,7 +8,7 @@ enum ViewState { idle, busy }
 
 class CardScannerViewModel extends ChangeNotifier {
   final WebhookService _webhookService = WebhookService();
-  final TextRecognizer _textRecognizer = TextRecognizer();
+  final TextRecognizer _textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
 
   ViewState _state = ViewState.idle;
   String _feedbackText = '';

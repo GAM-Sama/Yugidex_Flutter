@@ -27,38 +27,29 @@ class ProcessedCardsViewModel extends ChangeNotifier {
 
   /// Carga las cartas procesadas de un lote específico
   Future<void> fetchCardsByJobId(String jobId) async {
-    print('🔥 ProcessedCardsViewModel - fetchCardsByJobId iniciado para jobId: $jobId');
     if (_supabaseService == null) {
       _errorMessage = 'Servicio no inicializado';
-      print('❌ ProcessedCardsViewModel - Servicio no inicializado');
       notifyListeners();
       return;
     }
 
     _isLoading = true;
     _errorMessage = null;
-    print('🔥 ProcessedCardsViewModel - Estado de carga iniciado');
     notifyListeners();
 
     try {
-      print('🔥 ProcessedCardsViewModel - Llamando a getCardsByJobId...');
       _cards = await _supabaseService!.getCardsByJobId(jobId);
-      print('✅ ProcessedCardsViewModel - Datos obtenidos: ${_cards.length} cartas');
 
       if (_cards.isNotEmpty) {
         _selectedCard = _cards.first;
-        print('✅ ProcessedCardsViewModel - Primera carta seleccionada: ${_selectedCard?.nombre}');
       } else {
         _selectedCard = null;
-        print('⚠️ ProcessedCardsViewModel - No hay cartas disponibles');
       }
     } catch (e) {
       _errorMessage = e.toString();
       _selectedCard = null;
-      print('❌ ProcessedCardsViewModel - Error al cargar cartas: $e');
     } finally {
       _isLoading = false;
-      print('🔥 ProcessedCardsViewModel - Estado de carga finalizado. Cartas: ${_cards.length}, Loading: $_isLoading');
       notifyListeners();
     }
   }

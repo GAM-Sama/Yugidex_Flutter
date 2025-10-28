@@ -144,7 +144,7 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
       currentCardImage = NetworkImage(_lastCardImageUrl!);
     } else {
       // Usa tu placeholder si aún no hay imagen
-      currentCardImage = const AssetImage('lib/assets/card_placeholder.png');
+      currentCardImage = const AssetImage('assets/card_placeholder.png');
     }
 
     return Scaffold(
@@ -156,7 +156,7 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
         title: Row(
           children: [
             // Usamos el placeholder como un logo temporal
-            Image.asset('lib/assets/card_placeholder.png', width: 24),
+            Image.asset('assets/card_placeholder.png', width: 24),
             const SizedBox(width: AppSpacing.sm),
             Text(
               'Yu-Gi-Oh! Scanner', // <-- Puedes cambiar esto

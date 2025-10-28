@@ -11,24 +11,24 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  camera: ^0.11.0 # Consider checking for newer versions
-  google_mlkit_text_recognition: ^0.15.0 # Consider checking for newer versions
-  http: ^1.2.0 # Consider checking for newer versions
-  provider: ^6.1.2 # Consider checking for newer versions
-  flutter_dotenv: ^5.1.0
-  supabase_flutter: ^2.5.0 # Consider checking for newer versions
+  camera: ^0.11.2+1 # Updated to latest patch version
+  google_mlkit_text_recognition: ^0.15.0 # Latest version available
+  http: ^1.2.0 # Latest stable version
+  provider: ^6.1.2 # Latest stable version
+  flutter_dotenv: ^6.0.0 # Updated to latest major version
+  supabase_flutter: ^2.10.3 # Updated to latest version
   string_similarity: ^2.1.0
   cached_network_image: ^3.3.1
   flutter_staggered_animations: ^1.1.1
-  lucide_icons: ^0.257.0 # Consider checking for newer versions
+  lucide_icons: ^0.257.0 # Latest version available
   cupertino_icons: ^1.0.8
-  google_fonts: ^6.3.2 # Consider checking for newer versions
+  google_fonts: ^6.3.2 # Latest version available
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_launcher_icons: ^0.13.1 # Consider checking for newer versions
-  flutter_lints: ^5.0.0 # Consider checking for newer versions (e.g., ^4.0.0)
+  flutter_launcher_icons: ^0.14.4 # Updated to latest version
+  flutter_lints: ^6.0.0 # Updated to latest version
 
 # --- CORRECTED LAUNCHER ICON CONFIGURATION ---
 flutter_launcher_icons:

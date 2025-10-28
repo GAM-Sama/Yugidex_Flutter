@@ -264,10 +264,3 @@ class AppTheme {
     );
   }
 }
-
-/// Extensiones útiles para colores
-extension ColorExtension on Color {
-  Color withOpacity(double opacity) {
-    return withValues(alpha: opacity);
-  }
-}

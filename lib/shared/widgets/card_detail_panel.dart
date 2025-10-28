@@ -207,7 +207,6 @@ class _CardDetailPanelState extends State<CardDetailPanel> { // Changed to State
     required IconData icon,
     required VoidCallback? onPressed,
   }) {
-    final theme = Theme.of(context);
     return SizedBox(
       width: 36, height: 36, // Fixed size
       child: ElevatedButton(
@@ -273,47 +272,78 @@ class _CardDetailPanelState extends State<CardDetailPanel> { // Changed to State
     );
   }
 
-  // --- NEW: Calls ViewModel to delete ---
-  void _performDelete(BuildContext context) async {
-    // Use listen: false because we are in a callback, not the build method
+  // --- Calls ViewModel to delete ---
+  Future<void> _performDelete(BuildContext context) async {
+    // Get required values before async operations
     final cardListVM = Provider.of<CardListViewModel>(context, listen: false);
     final userCardId = widget.userCard?.userCardId;
     final currentQuantity = widget.userCard?.quantity;
-
-    if (userCardId != null && currentQuantity != null) {
-      try {
-        await cardListVM.deleteUserCardQuantity(
-          userCardId: userCardId,
-          quantityToDelete: _quantityToDelete,
-          currentQuantity: currentQuantity,
+    
+    // Validate required values
+    if (userCardId == null || currentQuantity == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error: No se pudo identificar la carta a eliminar.'),
+            backgroundColor: AppColors.error,
+          ),
         );
-        // Optional: Show success Snackbar
-        if (mounted) {
-         ScaffoldMessenger.of(context).showSnackBar(
-           const SnackBar(content: Text('Carta actualizada/eliminada'), duration: Duration(seconds: 2))
-         );
-         // Reset quantity to 1 just in case
-          // Use setState in a post-frame callback here as well
-         WidgetsBinding.instance.addPostFrameCallback((_) {
-           if(mounted) {
-             setState(() => _quantityToDelete = 1);
-           }
-         });
-        }
-      } catch (e) {
-         // Optional: Show error Snackbar
-         if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(
-             SnackBar(content: Text('Error al eliminar: ${e.toString()}'), backgroundColor: AppColors.error),
-           );
-         }
       }
-    } else {
-       if (mounted) {
-         ScaffoldMessenger.of(context).showSnackBar(
-           const SnackBar(content: Text('Error: No se pudo identificar la carta a eliminar.'), backgroundColor: AppColors.error),
-         );
-       }
+      return;
+    }
+
+    // Store messenger and navigator before async operations
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    
+    // Show loading indicator
+    if (!mounted) return;
+    final navigator = Navigator.of(context);
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
+    try {
+      await cardListVM.deleteUserCardQuantity(
+        userCardId: userCardId,
+        quantityToDelete: _quantityToDelete,
+        currentQuantity: currentQuantity,
+      );
+
+      // Check if widget is still mounted after async operation
+      if (!mounted) return;
+      
+      // Close the loading dialog
+      navigator.pop();
+
+      // Show success message
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(
+          content: Text('Carta actualizada/eliminada correctamente'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      
+      // Reset quantity to 1
+      if (mounted) {
+        setState(() => _quantityToDelete = 1);
+      }
+    } catch (e) {
+      // Close loading dialog if still mounted
+      if (mounted) {
+        navigator.pop();
+        // Show error message
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     }
   }
 
@@ -337,7 +367,6 @@ class _CardDetailPanelState extends State<CardDetailPanel> { // Changed to State
        if (clasificacionLower == 'normal' || subtypesLower.contains('normal')) return CardFrameColors(const Color(0xFFFDE68A), Colors.black);
        return CardFrameColors(const Color(0xFFC07B41), Colors.white);
      }
-     print("⚠️ Fallback color used for card: ${card.nombre}");
      return CardFrameColors(theme.dividerColor, theme.textTheme.bodyMedium!.color!);
   }
 
@@ -350,15 +379,23 @@ class _CardDetailPanelState extends State<CardDetailPanel> { // Changed to State
        String marcoDisplay;
        if (marcoLower.contains('monstruo') || marcoLower.contains('monster')) {
          marcoDisplay = 'Monstruo';
-       } else if (marcoLower.contains('magia') || marcoLower.contains('spell')) marcoDisplay = 'Magia';
-       else if (marcoLower.contains('trampa') || marcoLower.contains('trap')) marcoDisplay = 'Trampa';
-       else marcoDisplay = card.marcoCarta!;
+       } else if (marcoLower.contains('magia') || marcoLower.contains('spell')) {
+         marcoDisplay = 'Magia';
+       } else if (marcoLower.contains('trampa') || marcoLower.contains('trap')) {
+         marcoDisplay = 'Trampa';
+       } else {
+         marcoDisplay = card.marcoCarta!;
+       }
        tags.add(_buildTag(context, marcoDisplay, finalColors.backgroundColor, finalColors.textColor));
      }
      if (card.tipo != null && card.tipo!.isNotEmpty && card.tipo != 'null') {
        final tipoLower = card.tipo!.toLowerCase();
        if (!tipoLower.contains('spell card') && !tipoLower.contains('trap card')) {
-         tags.add(_buildTag(context, card.tipo!, finalColors.backgroundColor, finalColors.textColor));
+         if (tipoLower.contains('fusion') || tipoLower.contains('synchro') || tipoLower.contains('xyz') || tipoLower.contains('link') || tipoLower.contains('ritual')) {
+           tags.add(_buildTag(context, tipoLower, finalColors.backgroundColor, finalColors.textColor));
+         } else {
+           tags.add(_buildTag(context, tipoLower, finalColors.backgroundColor, finalColors.textColor));
+         }
        }
      }
      if (card.clasificacion != null && card.clasificacion!.isNotEmpty && card.clasificacion != 'null') {
@@ -390,7 +427,7 @@ class _CardDetailPanelState extends State<CardDetailPanel> { // Changed to State
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: textColor.withOpacity(0.5), width: 1), // Use opacity instead of alpha
+        border: Border.all(color: textColor.withAlpha((textColor.a * 255.0 * 0.5).round() & 0xff), width: 1), // Using withAlpha with proper alpha calculation
       ),
       child: Text(text,
           style: Theme.of(context)

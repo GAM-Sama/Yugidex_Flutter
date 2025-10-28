@@ -1,8 +1,6 @@
 # Mantener reglas para scripts de idioma de Google ML Kit Text Recognition
--keep class com.google.mlkit.vision.text.chinese.** { *; }
--keep class com.google.mlkit.vision.text.devanagari.** { *; }
--keep class com.google.mlkit.vision.text.japanese.** { *; }
--keep class com.google.mlkit.vision.text.korean.** { *; }
+# Solo mantener el script latino ya que es el que usamos específicamente
+-keep class com.google.mlkit.vision.text.latin.** { *; }
 
 # Reglas adicionales para Google ML Kit Text Recognition
 -keep class com.google.mlkit.vision.text.** { *; }
@@ -18,6 +16,15 @@
 # Mantener implementaciones específicas de TextRecognizer
 -keep class com.google.mlkit.vision.text.TextRecognizer { *; }
 -keep class com.google.mlkit.vision.text.TextRecognizerOptionsInterface { *; }
+
+# Reglas específicas para evitar problemas de descarga de modelos durante build
+-keep class com.google.mlkit.vision.text.latin.TextRecognizerOptions { *; }
+-keep class com.google.mlkit.vision.text.latin.TextRecognizer { *; }
+
+# Suprimir warnings de operaciones no verificadas en Google ML Kit
+-dontwarn com.google.mlkit.**
+-dontwarn com.google.android.gms.**
+-dontwarn com.google.firebase.**
 
 # Puedes añadir aquí otras reglas Proguard si las necesitas en el futuro
 # Por ejemplo, las que Flutter añade por defecto (si no las tienes ya en build.gradle):

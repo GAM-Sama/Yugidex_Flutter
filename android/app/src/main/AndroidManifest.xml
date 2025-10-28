@@ -51,6 +51,16 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- ML Kit configuration to prevent automatic model downloads during build -->
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="ocr" />
+
+        <!-- Specify OCR script to use (Latin for Spanish/English text) -->
+        <meta-data
+            android:name="com.google.mlkit.vision.text.script"
+            android:value="latn" />
     </application>
 
     <!-- Required to query activities that can process text, see:

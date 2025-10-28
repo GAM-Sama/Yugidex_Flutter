@@ -137,12 +137,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     }
 
                     try {
+                      // Almacenar el contexto actual
+                      final currentContext = context;
+                      
                       // Actualizar los metadatos del usuario
                       await authViewModel.updateUserMetadata(metadata);
 
+                      // Verificar si el widget sigue montado
+                      if (!mounted) return;
+                      
                       // Mostrar mensaje de éxito
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
+                      if (currentContext.mounted) {
+                        ScaffoldMessenger.of(currentContext).showSnackBar(
                           const SnackBar(
                             content: Text('Perfil actualizado correctamente'),
                             backgroundColor: Colors.green,
@@ -150,11 +156,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         );
                       }
                     } catch (e) {
-                      // Mostrar mensaje de error
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
+                      // Verificar si el widget sigue montado
+                      if (!mounted) return;
+                      
+                      // Almacenar el contexto actual para el bloque catch
+                      final errorContext = context;
+                      if (errorContext.mounted) {
+                        // Mostrar mensaje de error
+                        ScaffoldMessenger.of(errorContext).showSnackBar(
                           SnackBar(
-                            content: Text('Error al actualizar el perfil: ${e.toString()}'),
+                            content: Text('Error al actualizar el perfil: $e'),
                             backgroundColor: Colors.red,
                           ),
                         );
@@ -177,17 +188,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     // 1. Ejecuta la acción asíncrona
                     await authViewModel.signOut();
 
+                    // Verificar si el widget sigue montado
+                    if (!mounted) return;
+                    
                     // 2. Usa addPostFrameCallback para navegar en el siguiente frame
-                    if (mounted) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) {
-                          Navigator.of(context).pushAndRemoveUntil(
-                            MaterialPageRoute(builder: (context) => const LoginScreen()),
-                            (Route<dynamic> route) => false,
-                          );
-                        }
-                      });
-                    }
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (!mounted) return;
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(builder: (context) => const LoginScreen()),
+                        (Route<dynamic> route) => false,
+                      );
+                    });
                   },
                 ),
               ),

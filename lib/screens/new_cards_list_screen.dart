@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart' hide Card; // Evita conflicto
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+// import 'package:cached_network_image/cached_network_image.dart'; // Ya no se usa directamente aquí
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:lucide_icons/lucide_icons.dart'; // Añadir Lucide icons
 
@@ -14,6 +14,9 @@ import '../view_models/processed_cards_view_model.dart';
 import '../view_models/card_filters_view_model.dart';
 import '../models/card_filters.dart';
 import '../models/card_model.dart'; // Importa tu clase 'Card'
+
+// --- NUEVO IMPORT AÑADIDO ---
+import 'package:yugioh_scanner/shared/widgets/flippable_card.dart';
 
 class NewCardsListScreen extends StatefulWidget {
   final String jobId;
@@ -34,7 +37,7 @@ class _NewCardsListScreenState extends State<NewCardsListScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _initializeViewModel());
   }
 
-   @override
+  @override
   void dispose() {
     // _searchController.dispose(); // Ya no existe
     super.dispose();
@@ -50,18 +53,18 @@ class _NewCardsListScreenState extends State<NewCardsListScreen> {
       debugPrint('❌ Error inicializando NewCardsListScreen: $e');
       // Considera mostrar un mensaje de error al usuario aquí si vm.errorMessage no se actualiza
        // ... dentro de catch (e) { ...
-     if (mounted) {
-       // Asigna directamente a la propiedad errorMessage y notifica
-       final vm = Provider.of<ProcessedCardsViewModel>(context, listen: false);
-       vm.errorMessage = 'No se pudieron cargar las cartas procesadas.';
-       // ¡IMPORTANTE! Asegúrate de que tu ViewModel llame a notifyListeners()
-       // cuando se cambie errorMessage. Si no, añade vm.notifyListeners(); aquí.
-     }
+      if (mounted) {
+        // Asigna directamente a la propiedad errorMessage y notifica
+        final vm = Provider.of<ProcessedCardsViewModel>(context, listen: false);
+        vm.errorMessage = 'No se pudieron cargar las cartas procesadas.';
+        // ¡IMPORTANTE! Asegúrate de que tu ViewModel llame a notifyListeners()
+        // cuando se cambie errorMessage. Si no, añade vm.notifyListeners(); aquí.
+      }
 // ...
     }
   }
 
-  // --- HELPER DE ORDENACIÓN ---
+  // --- HELPER DE ORDENACIÓN (SIN CAMBIOS) ---
   String _getCardSortValue(Card card) {
     const Map<String, int> typeOrder = {'Monster': 1, 'Spell': 2, 'Trap': 3};
     const Map<String, int> monsterSubtypeOrder = {
@@ -122,7 +125,7 @@ class _NewCardsListScreenState extends State<NewCardsListScreen> {
     }
     return '${primary.toString().padLeft(2, '0')}-${secondary.toString().padLeft(2, '0')}';
   }
-  // --- HELPER PARA CONSTRUIR TEXTO DE ESTADO ---
+  // --- HELPER PARA CONSTRUIR TEXTO DE ESTADO (SIN CAMBIOS) ---
   String _buildStatusText(int validCards, int totalCards, ProcessedCardsViewModel processedVM) {
     // Calcular cartas fallidas: cartas que no tienen nombre (independientemente de filtros)
     final failedCards = processedVM.cards.where((card) => card.nombre == null || card.nombre!.isEmpty).length;
@@ -135,7 +138,7 @@ class _NewCardsListScreenState extends State<NewCardsListScreen> {
   }
   // --- FIN HELPER ---
 
-  // Helper para obtener el texto del tipo de ordenación
+  // Helper para obtener el texto del tipo de ordenación (SIN CAMBIOS)
   String _getSortLabel(SortBy sortBy) {
     switch (sortBy) {
       case SortBy.name: return 'Nombre';
@@ -167,18 +170,18 @@ class _NewCardsListScreenState extends State<NewCardsListScreen> {
 
               if (processedVM.isLoading) {
                  return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const CircularProgressIndicator(),
-                      const SizedBox(height: AppSpacing.md),
-                      Text(
-                        'Cargando cartas procesadas...',
-                        style: textTheme.bodyMedium,
-                      ),
-                    ],
-                  ),
-                );
+                   child: Column(
+                     mainAxisAlignment: MainAxisAlignment.center,
+                     children: [
+                       const CircularProgressIndicator(),
+                       const SizedBox(height: AppSpacing.md),
+                       Text(
+                         'Cargando cartas procesadas...',
+                         style: textTheme.bodyMedium,
+                       ),
+                     ],
+                   ),
+                 );
               }
 
               if (processedVM.errorMessage != null) {
@@ -204,8 +207,8 @@ class _NewCardsListScreenState extends State<NewCardsListScreen> {
                           textAlign: TextAlign.center,
                           style: textTheme.bodyMedium,
                         ),
-                         const SizedBox(height: AppSpacing.lg),
-                         ElevatedButton.icon( // Botón para reintentar
+                        const SizedBox(height: AppSpacing.lg),
+                        ElevatedButton.icon( // Botón para reintentar
                            icon: const Icon(Icons.refresh),
                            label: const Text('Reintentar'),
                            onPressed: _initializeViewModel,
@@ -218,41 +221,53 @@ class _NewCardsListScreenState extends State<NewCardsListScreen> {
 
               if (processedVM.cards.isEmpty) { // Comprueba sobre las originales
                  return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.inventory_2_outlined,
-                        size: 80,
-                        color: theme.disabledColor,
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      Text(
-                        'No se procesaron cartas válidas', // Mensaje más claro
-                        style: textTheme.titleMedium,
-                        textAlign: TextAlign.center,
-                      ),
+                   child: Column(
+                     mainAxisAlignment: MainAxisAlignment.center,
+                     children: [
+                       Icon(
+                         Icons.inventory_2_outlined,
+                         size: 80,
+                         color: theme.disabledColor,
+                       ),
+                       const SizedBox(height: AppSpacing.md),
+                       Text(
+                         'No se procesaron cartas válidas', // Mensaje más claro
+                         style: textTheme.titleMedium,
+                         textAlign: TextAlign.center,
+                       ),
                        const SizedBox(height: AppSpacing.lg),
                        ElevatedButton.icon( // Botón para volver
-                         icon: const Icon(Icons.arrow_back),
-                         label: const Text('Volver'),
-                         onPressed: () => Navigator.of(context).pop(),
-                       )
-                    ],
-                  ),
-                );
+                          icon: const Icon(Icons.arrow_back),
+                          label: const Text('Volver'),
+                          onPressed: () => Navigator.of(context).pop(),
+                        )
+                     ],
+                   ),
+                 );
               }
 
               // --- Estructura principal con Toolbar restaurada ---
               return Row(
                 children: [
-                  CardDetailPanel(card: processedVM.selectedCard),
+                  // Show CardDetailPanel only if a card is selected, otherwise show a placeholder
+                  processedVM.selectedCard != null 
+                      ? CardDetailPanel(card: processedVM.selectedCard)
+                      : Container(
+                          width: 300, // Match the width of the CardDetailPanel
+                          color: theme.cardColor,
+                          child: Center(
+                            child: Text(
+                              'Selecciona una carta',
+                              style: textTheme.bodyMedium,
+                            ),
+                          ),
+                        ),
                   Container(width: 1, color: theme.dividerColor),
                   Expanded(
                     flex: 5,
                     child: Column(
                       children: [
-                        // --- Barra superior Original ---
+                        // --- Barra superior Original (SIN CAMBIOS) ---
                         Container(
                           color: theme.colorScheme.surface,
                           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
@@ -298,39 +313,39 @@ class _NewCardsListScreenState extends State<NewCardsListScreen> {
                               ),
                               // Botón Filtrar
                                Tooltip(
-                                message: 'Filtros (${_getActiveFiltersCount(filterVM) > 0 ? '${_getActiveFiltersCount(filterVM)} activos' : 'Ninguno'})',
-                                child: Stack(
-                                  clipBehavior: Clip.none,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(LucideIcons.filter),
-                                      color: _getActiveFiltersCount(filterVM) > 0 ? AppColors.primary : AppColors.textSecondary,
-                                      iconSize: 20,
-                                      onPressed: () => _showFilterDialog(context, filterVM),
-                                      splashRadius: 20,
-                                      constraints: const BoxConstraints(),
-                                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                                    ),
-                                    if (_getActiveFiltersCount(filterVM) > 0)
-                                      Positioned(
-                                        top: -4,
-                                        right: -2,
-                                        child: CircleAvatar(
-                                          radius: 9,
-                                          backgroundColor: AppColors.error,
-                                          child: Text(
-                                            _getActiveFiltersCount(filterVM).toString(),
-                                            style: const TextStyle(
-                                              fontSize: 10,
-                                              color: AppColors.textPrimary,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
+                                 message: 'Filtros (${_getActiveFiltersCount(filterVM) > 0 ? '${_getActiveFiltersCount(filterVM)} activos' : 'Ninguno'})',
+                                 child: Stack(
+                                   clipBehavior: Clip.none,
+                                   children: [
+                                     IconButton(
+                                       icon: const Icon(LucideIcons.filter),
+                                       color: _getActiveFiltersCount(filterVM) > 0 ? AppColors.primary : AppColors.textSecondary,
+                                       iconSize: 20,
+                                       onPressed: () => _showFilterDialog(context, filterVM),
+                                       splashRadius: 20,
+                                       constraints: const BoxConstraints(),
+                                       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                                     ),
+                                     if (_getActiveFiltersCount(filterVM) > 0)
+                                       Positioned(
+                                         top: -4,
+                                         right: -2,
+                                         child: CircleAvatar(
+                                           radius: 9,
+                                           backgroundColor: AppColors.error,
+                                           child: Text(
+                                             _getActiveFiltersCount(filterVM).toString(),
+                                             style: const TextStyle(
+                                               fontSize: 10,
+                                               color: AppColors.textPrimary,
+                                               fontWeight: FontWeight.bold,
+                                             ),
+                                           ),
+                                         ),
+                                       ),
+                                   ],
+                                 ),
+                               ),
                             ],
                           ),
                         ),
@@ -365,7 +380,7 @@ class _NewCardsListScreenState extends State<NewCardsListScreen> {
                                           child: FadeInAnimation(
                                             child: GestureDetector(
                                               onTap: () => processedVM.selectCard(card),
-                                              child: Container(
+                                              child: Container( // Mantenemos el Container para el borde
                                                 decoration: BoxDecoration(
                                                   borderRadius: BorderRadius.circular(AppSpacing.sm),
                                                   border: Border.all(
@@ -373,28 +388,15 @@ class _NewCardsListScreenState extends State<NewCardsListScreen> {
                                                     width: 2.5,
                                                   ),
                                                 ),
-                                                child: ClipRRect(
+                                                // --- INICIO DE MODIFICACIÓN ---
+                                                child: FlippableCard(
+                                                  imageUrl: card.imagen ?? '',
+                                                  cardBackAsset: 'assets/back-card.png',
+                                                  fit: BoxFit.cover,
                                                   borderRadius: BorderRadius.circular(AppSpacing.xs),
-                                                  child: CachedNetworkImage(
-                                                    imageUrl: card.imagen ?? '',
-                                                    fit: BoxFit.cover,
-                                                    placeholder: (c, u) => Container(color: theme.colorScheme.surface),
-                                                    errorWidget: (c, u, e) {
-                                                      // Si la carta no tiene nombre (es fallida) o no tiene imagen, mostrar back-card.png
-                                                      if (card.nombre == null || card.nombre!.isEmpty || card.imagen == null || card.imagen!.isEmpty) {
-                                                        return Image.asset(
-                                                          'lib/assets/back-card.png',
-                                                          fit: BoxFit.cover,
-                                                        );
-                                                      }
-                                                      // Si hay error de carga pero la carta es válida, mostrar back-card.png en lugar del icono de error
-                                                      return Image.asset(
-                                                        'lib/assets/back-card.png',
-                                                        fit: BoxFit.cover,
-                                                      );
-                                                    },
-                                                  ),
+                                                  cardData: card, // Asegúrate de pasar los datos de la carta
                                                 ),
+                                                // --- FIN DE MODIFICACIÓN ---
                                               ),
                                             ),
                                           ),
@@ -418,7 +420,8 @@ class _NewCardsListScreenState extends State<NewCardsListScreen> {
 
 
   // --- FUNCIONES DE FILTRADO Y ORDENACIÓN (Adaptadas para List<Card>) ---
-  List<Card> _applyFilters( // Devuelve List<Card>
+  // (SIN CAMBIOS RESPECTO A TU VERSIÓN)
+  List<Card> _applyFilters(
       ProcessedCardsViewModel processedVM, CardFiltersViewModel filterVM) {
     final filters = filterVM.filters;
     final sortBy = filterVM.sortBy;
@@ -599,6 +602,7 @@ class _NewCardsListScreenState extends State<NewCardsListScreen> {
     return filteredCards;
   }
 
+  // (SIN CAMBIOS)
   int _getActiveFiltersCount(CardFiltersViewModel vm) {
      final f = vm.filters;
     return f.cardTypes.length +
@@ -610,6 +614,7 @@ class _NewCardsListScreenState extends State<NewCardsListScreen> {
         ((f.minDef?.isNotEmpty ?? false) ? 1 : 0);
   }
 
+  // (SIN CAMBIOS)
   void _showSortDialog(BuildContext context, CardFiltersViewModel vm) {
      final theme = Theme.of(context);
     final List<Map<String, dynamic>> sortOptions = [
@@ -640,12 +645,12 @@ class _NewCardsListScreenState extends State<NewCardsListScreen> {
                 leading: Icon(option['icon'] as IconData, color: option['color'] as Color),
                 title: Text(option['label'] as String, style: theme.textTheme.bodyLarge),
                 trailing: isSelected
-                  ? Icon(
-                      vm.sortDirection == SortDirection.asc ? Icons.arrow_upward : Icons.arrow_downward,
-                      color: AppColors.primary,
-                      size: 20,
-                    )
-                  : null,
+                    ? Icon(
+                        vm.sortDirection == SortDirection.asc ? Icons.arrow_upward : Icons.arrow_downward,
+                        color: AppColors.primary,
+                        size: 20,
+                      )
+                    : null,
                 onTap: () {
                   vm.setSort(sortByValue);
                   Navigator.pop(context);
@@ -664,6 +669,7 @@ class _NewCardsListScreenState extends State<NewCardsListScreen> {
     );
   }
 
+  // (SIN CAMBIOS)
   void _showFilterDialog(BuildContext context, CardFiltersViewModel vm) {
      showDialog(context: context, builder: (_) => FiltersDialog(viewModel: vm),);
   }

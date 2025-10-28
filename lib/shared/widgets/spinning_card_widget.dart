@@ -91,7 +91,7 @@ class _SpinningFlipCardWidgetState extends State<SpinningFlipCardWidget>
   @override
   Widget build(BuildContext context) {
     final backCard = Image.asset(
-      'lib/assets/back-card.png',
+      'assets/back-card.png',
       fit: BoxFit.cover,
     );
 

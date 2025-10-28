@@ -114,18 +114,6 @@ class Card {
       iconoCarta: safeString(json['Icono Carta']) ?? safeString(json['icono_carta']) ?? safeString(json['IconoCarta']),
     );
 
-    // DEBUG: Solo mostrar información básica para evitar logs excesivos
-    print('=== CARD CREADA ===');
-    print('Nombre: "${card.nombre}"');
-    print('Tipo: "${card.tipo}"');
-    print('Clasificacion: "${card.clasificacion}"'); // <-- Debug añadido
-    print('Subtipo: ${card.subtipo}');
-    print('MarcoCarta: "${card.marcoCarta}"');
-    print('EscalaPendulo: ${card.escalaPendulo}');
-    print('RatioEnlace: ${card.ratioEnlace}');
-    // ... (resto de tus prints de debug) ...
-    print('===================');
-
     return card;
   }
 }

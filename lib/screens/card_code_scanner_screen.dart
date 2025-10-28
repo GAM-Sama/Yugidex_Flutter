@@ -176,7 +176,7 @@ Widget _buildCameraSection(
 
   Widget _buildCardFramePlaceholder() {
     return Image.asset(
-      'lib/assets/ygo_card_frame.png',
+      'assets/ygo_card_frame.png',
       fit: BoxFit.fill,
     );
   }
