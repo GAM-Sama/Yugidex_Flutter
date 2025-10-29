@@ -361,7 +361,10 @@ class _CardDetailPanelState extends State<CardDetailPanel> { // Changed to State
      if (marcoLower.contains('xyz') || tipoLower.contains('xyz') || subtypesLower.contains('xyz')) return CardFrameColors(const Color(0xFF222222), Colors.white);
      if (marcoLower.contains('link') || tipoLower.contains('link') || subtypesLower.contains('link')) return CardFrameColors(const Color(0xFF0077CC), Colors.white);
      if (marcoLower.contains('ritual') || tipoLower.contains('ritual') || subtypesLower.contains('ritual')) return CardFrameColors(const Color(0xFF9DB5CC), Colors.white);
-     if (marcoLower.contains('spell') || tipoLower.contains('spell')) return CardFrameColors(const Color(0xFF1D9E74), Colors.white);
+     // Verificar primero si es una carta Mágica (no confundir con Spellcaster)
+     if (tipoLower == 'spell card' || tipoLower == 'spell' || marcoLower == 'spell') {
+       return CardFrameColors(const Color(0xFF1D9E74), Colors.white);
+     }
      if (marcoLower.contains('trap') || tipoLower.contains('trap')) return CardFrameColors(const Color(0xFFBC5A84), Colors.white);
      if (marcoLower.contains('monster') || tipoLower.contains('monster')) {
        if (clasificacionLower == 'normal' || subtypesLower.contains('normal')) return CardFrameColors(const Color(0xFFFDE68A), Colors.black);
