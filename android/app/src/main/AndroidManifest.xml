@@ -13,9 +13,14 @@
         android:required="false"/>
 
     <application
-        android:label="yugioh_scanner"
+        android:label="Yugidex"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:hardwareAccelerated="true">
+
+        <!-- Enable hardware acceleration for better graphics performance -->
+        <meta-data android:name="android.hardware.opengl.enabled" android:value="true"/>
+        <meta-data android:name="android.hardware.opengl.version" android:value="0x00020000"/>
 
         <activity
             android:name=".MainActivity"
@@ -46,6 +51,16 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- ML Kit configuration to prevent automatic model downloads during build -->
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="ocr" />
+
+        <!-- Specify OCR script to use (Latin for Spanish/English text) -->
+        <meta-data
+            android:name="com.google.mlkit.vision.text.script"
+            android:value="latn" />
     </application>
 
     <!-- Required to query activities that can process text, see:

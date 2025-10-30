@@ -1,91 +1,60 @@
 name: yugioh_scanner
-description: "A new Flutter project."
-# The following line prevents the package from being accidentally published to
-# pub.dev using `flutter pub publish`. This is preferred for private packages.
+description: "Yugidex - Advanced Yu-Gi-Oh! card scanner and collection manager with OCR technology."
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
-# The following defines the version and build number for your application.
-# A version number is three numbers separated by dots, like 1.2.43
-# followed by an optional build number separated by a +.
-# Both the version and the builder number may be overridden in flutter
-# build by specifying --build-name and --build-number, respectively.
-# In Android, build-name is used as versionName while build-number used as versionCode.
-# Read more about Android versioning at https://developer.android.com/studio/publish/versioning
-# In iOS, build-name is used as CFBundleShortVersionString while build-number is used as CFBundleVersion.
-# Read more about iOS versioning at
-# https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
-# In Windows, build-name is used as the major, minor, and patch parts
-# of the product and file versions while build-number is used as the build suffix.
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.7.0
+  # Make sure this matches your Flutter SDK version constraint if needed
+  sdk: '>=3.0.0 <4.0.0' # Example constraint, adjust as necessary
 
-# Dependencies specify other packages that your package needs in order to work.
-# To automatically upgrade your package dependencies to the latest versions
-# consider running `flutter pub upgrade --major-versions`. Alternatively,
-# dependencies can be manually updated by changing the version numbers below to
-# the latest version available on pub.dev. To see which dependencies have newer
-# versions available, run `flutter pub outdated`.
 dependencies:
   flutter:
     sdk: flutter
-  camera: ^0.11.0
-  google_mlkit_text_recognition: ^0.15.0
-  http: ^1.2.0
-  provider: ^6.1.2
-  flutter_dotenv: ^5.1.0
-  supabase_flutter: ^2.5.0
+  camera: ^0.11.2+1 # Updated to latest patch version
+  google_mlkit_text_recognition: ^0.15.0 # Latest version available
+  http: ^1.2.0 # Latest stable version
+  provider: ^6.1.2 # Latest stable version
+  flutter_dotenv: ^6.0.0 # Updated to latest major version
+  supabase_flutter: ^2.10.3 # Updated to latest version
   string_similarity: ^2.1.0
   cached_network_image: ^3.3.1
   flutter_staggered_animations: ^1.1.1
-
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
+  lucide_icons: ^0.257.0 # Latest version available
   cupertino_icons: ^1.0.8
+  google_fonts: ^6.3.2 # Latest version available
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_launcher_icons: ^0.14.4 # Updated to latest version
+  flutter_lints: ^6.0.0 # Updated to latest version
 
-  # The "flutter_lints" package below contains a set of recommended lints to
-  # encourage good coding practices. The lint set provided by the package is
-  # activated in the `analysis_options.yaml` file located at the root of your
-  # package. See that file for information about deactivating specific lint
-  # rules and activating additional ones.
-  flutter_lints: ^5.0.0
+# --- CORRECTED LAUNCHER ICON CONFIGURATION ---
+flutter_launcher_icons:
+  android: true                 # Generate Android icons
+  ios: true                     # Generate iOS icons
+  image_path: "assets/icon/logo.png" # Path to your main 1024x1024 icon
+  min_sdk_android: 21           # Optional: Ensure this matches your android/app/build.gradle minSdk
+  # --- Optional: Settings for Android Adaptive Icons ---
+  # adaptive_icon_background: "#0A192F" # Background color (e.g., your app's dark blue)
+  # adaptive_icon_foreground: "assets/icon/icon_foreground.png" # Path to icon foreground layer (can have transparency)
+  # --- End Optional ---
+# --- END LAUNCHER ICON CONFIGURATION ---
 
-# For information on the generic Dart part of this file, see the
-# following page: https://dart.dev/tools/pub/pubspec
 
-# The following section is specific to Flutter packages.
 flutter:
-
-  # The following line ensures that the Material Icons font is
-  # included with your application, so that you can use the icons in
-  # the material Icons class.
   uses-material-design: true
+
+  # --- CORRECTED ASSET DECLARATIONS ---
   assets:
+    - .env                     # Keep specific files like .env
+    - packcodes/card_codes.txt # Keep specific data files if needed outside asset folders
+    - assets/                  # Declare the entire assets folder
+    - assets/images/           # Declare the images folder
+  # --- END ASSET DECLARATIONS ---
 
-    - packcodes/card_codes.txt
-    - packcodes/card_placeholder.png
-
-  # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
-
-  # An image asset can refer to one or more resolution-specific "variants", see
-  # https://flutter.dev/to/resolution-aware-images
-
-  # For details regarding adding assets from package dependencies, see
-  # https://flutter.dev/to/asset-from-package
-
-  # To add custom fonts to your application, add a fonts section here,
-  # in this "flutter" section. Each entry in this list should have a
-  # "family" key with the font family name, and a "fonts" key with a
-  # list giving the asset and other descriptors for the font. For
-  # example:
+  # --- Font configuration (if you add custom fonts) ---
   # fonts:
   #   - family: Schyler
   #     fonts:
@@ -97,6 +66,4 @@ flutter:
   #       - asset: fonts/TrajanPro.ttf
   #       - asset: fonts/TrajanPro_Bold.ttf
   #         weight: 700
-  #
-  # For details regarding fonts from package dependencies,
-  # see https://flutter.dev/to/font-from-package
+  # --- End Font configuration ---
