@@ -17,16 +17,71 @@ import 'screens/splash_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Carga las variables de entorno desde el archivo .env
-  await dotenv.load(fileName: ".env");
-
-  // Inicializa Supabase usando las variables de entorno
-  await Supabase.initialize(
-    url: dotenv.env['SUPABASE_URL']!,
-    anonKey: dotenv.env['SUPABASE_KEY']!,
-  );
-
-  runApp(const MyApp());
+  
+  try {
+    // 1. Cargar variables de entorno
+    await dotenv.load(fileName: ".env");
+    
+    // 2. Verificar que las variables de entorno existen
+    final supabaseUrl = dotenv.env['SUPABASE_URL'];
+    final supabaseKey = dotenv.env['SUPABASE_KEY'];
+    
+    if (supabaseUrl == null || supabaseKey == null) {
+      throw Exception('Las variables de entorno SUPABASE_URL y SUPABASE_KEY son requeridas');
+    }
+    
+    // 3. Inicializar Supabase con manejo de errores
+    await Supabase.initialize(
+      url: supabaseUrl,
+      anonKey: supabaseKey,
+      debug: true, // Habilitar modo debug para más información
+    );
+    
+    // 4. Verificar conexión con Supabase
+    final response = await Supabase.instance.client.from('Cartas').select('count').limit(1);
+    debugPrint('✅ Conexión con Supabase establecida correctamente');
+    
+    runApp(const MyApp());
+  } catch (e, stackTrace) {
+    // Mostrar error detallado en consola
+    debugPrint('❌ Error al inicializar la aplicación: $e');
+    debugPrint('Stack trace: $stackTrace');
+    
+    // Ejecutar la aplicación en modo error
+    runApp(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.red, size: 50),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Error de conexión',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    e.toString(),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () => main(),
+                    child: const Text('Reintentar'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class MyApp extends StatefulWidget {

@@ -55,7 +55,17 @@ class ProcessedCardsViewModel extends ChangeNotifier {
   }
 
   void selectCard(Card card) {
-    _selectedCard = card;
+    // Usar identical() para comparar referencias de objetos
+    if (_selectedCard == card) {
+      _selectedCard = null; // Deseleccionar si es la misma instancia
+    } else {
+      _selectedCard = card; // Seleccionar la nueva instancia
+    }
     notifyListeners();
+  }
+
+  // Método auxiliar para verificar si una carta está seleccionada
+  bool isCardSelected(Card card) {
+    return identical(_selectedCard, card);
   }
 }

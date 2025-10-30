@@ -23,10 +23,11 @@ class AuthViewModel extends BaseViewModel {
   User? get user => _user;
   String? get connectionErrorMessage => _connectionErrorMessage;
 
-  // --- ¡CAMBIO AQUÍ! ---
-  // Leemos 'username' en lugar de 'name'
-  String? get userName => _user?.userMetadata?['username'];
-  // --- FIN DEL CAMBIO ---
+  // Maneja tanto 'username' como 'name' para compatibilidad
+  String? get userName {
+    final metadata = _user?.userMetadata ?? {};
+    return metadata['username'] ?? metadata['name'] ?? _user?.email?.split('@').first;
+  }
 
   String? get userEmail => _user?.email;
   bool get isAuthenticated => _authState == AuthState.authenticated;

@@ -370,7 +370,7 @@ class _NewCardsListScreenState extends State<NewCardsListScreen> {
                                     itemCount: processedCards.length,
                                     itemBuilder: (context, index) {
                                       final card = processedCards[index];
-                                      final bool isSelected = processedVM.selectedCard?.idCarta == card.idCarta;
+                                      final bool isSelected = processedVM.isCardSelected(card);
 
                                       return AnimationConfiguration.staggeredGrid(
                                         position: index,
