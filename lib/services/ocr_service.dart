@@ -94,13 +94,6 @@ class OcrService {
     return result;
   }
 
-  static String? _findValidPrefix(String prefix, Set<String> acronymSet) {
-    final variants = _generatePermutations(prefix);
-    for (final variant in variants) {
-      if (acronymSet.contains(variant)) return variant;
-    }
-    return null;
-  }
 
   /// Normaliza sufijos sospechosos del OCR (ej. EN0334 -> EN033).
   static String _normalizeSuffix(String suffix) {
@@ -130,7 +123,7 @@ class OcrService {
       final base = match.group(1)!;
       final digits = match.group(2)!;
       // Mantener solo los primeros 3 dígitos si hay más de 3
-      return '${base}${digits.substring(0, 3)}';
+      return '$base${digits.substring(0, 3)}';
     }
     
     return suffix;
