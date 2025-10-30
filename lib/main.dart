@@ -37,9 +37,9 @@ Future<void> main() async {
       debug: true, // Habilitar modo debug para más información
     );
     
-    // 4. Verificar conexión con Supabase
+    // 4. Verificar conexión con Supabase y obtener conteo de cartas
     final response = await Supabase.instance.client.from('Cartas').select('count').limit(1);
-    debugPrint('✅ Conexión con Supabase establecida correctamente');
+    debugPrint('✅ Conexión con Supabase establecida correctamente. Total de cartas: ${response.length}');
     
     runApp(const MyApp());
   } catch (e, stackTrace) {
