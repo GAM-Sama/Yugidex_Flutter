@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'new_cards_list_screen.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-// ⬇️ 1. IMPORTAR EL TEMA Y EL NUEVO WIDGET
+// ⬇️ IMPORTACIONES DE TU PROYECTO
 import '../core/theme/app_theme.dart';
 import '../shared/widgets/spinning_card_widget.dart';
 
@@ -28,7 +29,7 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
   String _currentStatusMessage = 'Iniciando proceso...';
   bool _isComplete = false;
   
-  // ⬇️ 2. VARIABLE DE ESTADO PARA LA IMAGEN DE LA CARTA
+  // Variable para la imagen dinámica
   String? _lastCardImageUrl;
 
   @override
@@ -55,12 +56,22 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
 
   Future<void> _checkProgress() async {
     try {
-      final url = Uri.parse(
-        "https://primary-production-6c347.up.railway.app/webhook/progress?jobId=${widget.jobId}",
-      );
+      // --- Cargar URL completa del .env ---
+      // (Asumimos que en el .env tienes la ruta completa hasta /progress)
+      final baseUrl = dotenv.env['PROCESS_URL'] ?? '';
+      
+      if (baseUrl.isEmpty) {
+        debugPrint('⚠️ ERROR: La variable PROCESS_URL no está definida en el .env');
+        throw Exception('Falta configuración de entorno');
+      }
+
+      // Añadimos solo el parámetro jobId
+      final url = Uri.parse("$baseUrl?jobId=${widget.jobId}");
+
       final headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36',
       };
+      
       final response = await http
           .get(url, headers: headers)
           .timeout(const Duration(seconds: 15));
@@ -83,13 +94,11 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
               final String name = lastCardData['name'] ?? 'desconocido';
               _currentStatusMessage = 'Buscando $name...';
               
-              // ⬇️ 3. AQUÍ CAPTURAMOS LA URL DE LA IMAGEN
-              // !!! REVISA QUE EL CAMPO SE LLAME 'imageUrl' !!!
+              // Capturamos URL de la imagen
               final String? imageUrl = lastCardData['url'] as String?;
               if (imageUrl != null) {
                 _lastCardImageUrl = imageUrl;
               }
-              // ---
               
             } else {
               _currentStatusMessage = 'No se encontró info para $code...';
@@ -135,135 +144,135 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ⬇️ 4. OBTENEMOS EL TEMA
     final theme = Theme.of(context);
 
-    // ⬇️ 5. LÓGICA PARA DECIDIR QUÉ IMAGEN MOSTRAR
+    // Decidir imagen: red o asset
     final ImageProvider currentCardImage;
     if (_lastCardImageUrl != null) {
       currentCardImage = NetworkImage(_lastCardImageUrl!);
     } else {
-      // Usa tu placeholder si aún no hay imagen
       currentCardImage = const AssetImage('assets/card_placeholder.png');
     }
 
     return Scaffold(
-      // ⬇️ 6. APLICAMOS LOS ESTILOS DEL TEMA
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        // El tema ya se aplica solo (color, elevación)
-        automaticallyImplyLeading: false,
-        title: Row(
-          children: [
-            // Usamos el placeholder como un logo temporal
-            Image.asset('assets/card_placeholder.png', width: 24),
-            const SizedBox(width: AppSpacing.sm),
-            Text(
-              'Yu-Gi-Oh! Scanner', // <-- Puedes cambiar esto
-              style: theme.textTheme.titleMedium, // <-- Estilo del Tema
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined), // <-- El color lo da el tema
-            onPressed: () {},
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.xl, 
+            vertical: AppSpacing.sm
           ),
-          const SizedBox(width: AppSpacing.sm),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.xl), // <-- Espaciado del Tema
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Text(
-                  "Identificando Cartas...",
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    color: AppColors.primary, // <-- Color del Tema (Amarillo)
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
+          child: Column(
+            children: [
+              
+              // ⬇️ 1. ESPACIO SUPERIOR (Empuja todo hacia abajo)
+              const Spacer(flex: 2), 
 
-                // ⬇️ 7. AQUÍ VA LA CARTA GIRATORIA
-                SizedBox(
-                  width: 75, // Ajusta el tamaño como veas
-                  child: SpinningFlipCardWidget(
-                    frontImage: currentCardImage,
-                  ),
+              // --- TÍTULO ---
+              Text(
+                "Identificando Cartas...",
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  color: AppColors.primary,
                 ),
-                const SizedBox(height: AppSpacing.lg),
-                // ---
+                textAlign: TextAlign.center,
+              ),
 
-                LinearProgressIndicator(
-                  value:
-                      widget.totalCards == 0
-                          ? 1.0
-                          : _processedCount / widget.totalCards,
-                  minHeight: 20,
-                  borderRadius: BorderRadius.circular(AppSpacing.sm), // <-- Tema
-                  backgroundColor: AppColors.surface, // <-- Tema
-                  valueColor: const AlwaysStoppedAnimation<Color>(
-                    AppColors.primary, // <-- Tema
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                Text(
-                  "Procesando carta $_processedCount de ${widget.totalCards}...",
-                  style: theme.textTheme.bodyMedium, // <-- Tema
-                ),
+              // ⬇️ 2. Espacio entre Título y Carta
+              const Spacer(flex: 1),
 
-                SizedBox(
-                  height: 50,
-                  child: Center(
-                    child:
-                        !_isComplete && _currentStatusMessage.isNotEmpty
-                            ? Text(
-                                _currentStatusMessage,
-                                style: theme.textTheme.bodyLarge?.copyWith(
-                                  fontStyle: FontStyle.italic,
-                                  color: AppColors.textSecondary, // <-- Tema
-                                ),
-                                textAlign: TextAlign.center,
-                              )
-                            : const SizedBox.shrink(),
-                  ),
+              // --- CARTA GIRATORIA ---
+              SizedBox(
+                width: 75,
+                height: 110,
+                child: SpinningFlipCardWidget(
+                  frontImage: currentCardImage,
                 ),
-                const SizedBox(height: AppSpacing.md),
-                
-                if (!_isComplete)
-                  Text(
-                    "Esto puede tardar unos segundos.\n¡No cierres la Aplicación!",
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.titleMedium, // <-- Tema
-                  ),
-                  
-                if (_isComplete)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.check_circle,
-                          color: AppColors.success, // <-- Tema
-                          size: 60,
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                        Text(
-                          '¡Proceso Completado!',
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            color: AppColors.success, // <-- Tema
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
+              ),
+
+              // ⬇️ 3. ESPACIO CLAVE: Separa la carta de la barra
+              const Spacer(flex: 1), 
+
+              // --- BARRA DE PROGRESO ---
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  LinearProgressIndicator(
+                    value: widget.totalCards == 0
+                        ? 1.0
+                        : _processedCount / widget.totalCards,
+                    minHeight: 20,
+                    borderRadius: BorderRadius.circular(AppSpacing.sm),
+                    backgroundColor: AppColors.surface,
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      AppColors.primary,
                     ),
                   ),
-              ],
-            ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Procesando carta $_processedCount de ${widget.totalCards}...",
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+
+              // ⬇️ 4. Espacio entre Barra y Textos finales
+              const Spacer(flex: 1),
+
+              // --- ZONA DE MENSAJES ---
+              Container(
+                alignment: Alignment.center,
+                // Altura fija para reservar espacio y evitar saltos
+                height: 80, 
+                child: _isComplete
+                    ? 
+                    // 🟢 COMPLETADO
+                    Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.check_circle,
+                            color: AppColors.success,
+                            size: 40, 
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '¡Proceso Completado!',
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              color: AppColors.success,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      )
+                    : 
+                    // 🟠 PROCESANDO
+                    Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_currentStatusMessage.isNotEmpty)
+                            Text(
+                              _currentStatusMessage,
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                fontStyle: FontStyle.italic,
+                                color: AppColors.textSecondary,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          const SizedBox(height: 8),
+                          Text(
+                            "Esto puede tardar unos segundos.\n¡No cierres la Aplicación!",
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.titleMedium?.copyWith(fontSize: 14), 
+                          ),
+                        ],
+                      ),
+              ),
+
+              // ⬇️ 5. ESPACIO INFERIOR (Equilibra con el de arriba)
+              const Spacer(flex: 2),
+            ],
           ),
         ),
       ),
