@@ -3,8 +3,7 @@ import '../../../models/card_model.dart';
 import '../../../models/user_card_model.dart';
 import '../../../services/supabase_service.dart';
 
-/// Repositorio para operaciones relacionadas con cartas
-/// Esta capa separa la lógica de negocio de la implementación de servicios
+/// Repositorio para operaciones relacionadas con cartas del catálogo
 class CardRepository {
   final SupabaseService _supabaseService;
 
@@ -30,7 +29,7 @@ class CardRepository {
     }
   }
 
-  /// Busca cartas por nombre o texto
+  /// Busca cartas por nombre
   Future<List<Card>> searchCards(String query) async {
     try {
       final allCards = await getAllCards();
@@ -57,7 +56,6 @@ class CardRepository {
         return cardRarity.contains(rarity);
       }).toList();
 
-      debugPrint('✅ Encontradas ${filteredCards.length} cartas de rarity: $rarity');
       return filteredCards;
     } catch (e) {
       debugPrint('❌ Error en CardRepository.getCardsByRarity: $e');
@@ -71,7 +69,6 @@ class CardRepository {
       final allCards = await getAllCards();
       final filteredCards = allCards.where((card) => card.tipo == type).toList();
 
-      debugPrint('✅ Encontradas ${filteredCards.length} cartas de tipo: $type');
       return filteredCards;
     } catch (e) {
       debugPrint('❌ Error en CardRepository.getCardsByType: $e');
@@ -97,44 +94,55 @@ class UserCardRepository {
   }
 
   /// Añade una carta a la colección del usuario
+  /// ✅ CORRECTO: Usa 'cardCode' para la función RPC segura
   Future<void> addCardToCollection({
-    required int cardId,
+    required String cardCode,
     int quantity = 1,
     String condition = 'mint',
     String? notes,
   }) async {
     try {
       await _supabaseService.addCardToMyCollection(
-        cardId: cardId,
+        cardCode: cardCode,
         quantity: quantity,
         condition: condition,
         notes: notes,
       );
-      debugPrint('✅ Carta $cardId añadida a la colección del usuario');
+      debugPrint('✅ Carta $cardCode añadida a la colección del usuario');
     } catch (e) {
       debugPrint('❌ Error en UserCardRepository.addCardToCollection: $e');
       rethrow;
     }
   }
 
-  /// Actualiza la cantidad de una carta en la colección
-  Future<void> updateCardQuantity(int cardId, int newQuantity) async {
+  /// Disminuye la cantidad de una carta (o la borra si llega a 0)
+  /// 🔥 DESCOMENTADO Y ARREGLADO: Usa el servicio correctamente
+  Future<void> decreaseCardQuantity(String userCardId, int currentQuantity, int quantityToRemove) async {
     try {
-      // Esta funcionalidad necesitaría ser implementada en SupabaseService primero
-      debugPrint('🔄 Actualizando cantidad de carta $cardId a $newQuantity');
-      // await _supabaseService.updateCardQuantity(cardId, newQuantity);
+      debugPrint('🔄 Restando $quantityToRemove a la fila $userCardId');
+      await _supabaseService.deleteOrUpdateUserCardQuantity(
+        userCardId: userCardId,
+        quantityToDelete: quantityToRemove,
+        currentQuantity: currentQuantity,
+      );
     } catch (e) {
-      debugPrint('❌ Error en UserCardRepository.updateCardQuantity: $e');
+      debugPrint('❌ Error en UserCardRepository.decreaseCardQuantity: $e');
       rethrow;
     }
   }
 
-  /// Elimina una carta de la colección del usuario
-  Future<void> removeCardFromCollection(int cardId) async {
+  /// Elimina una carta de la colección del usuario (Borrado total)
+  /// 🔥 DESCOMENTADO Y ARREGLADO
+  Future<void> removeCardFromCollection(String userCardId) async {
     try {
-      // Esta funcionalidad necesitaría ser implementada en SupabaseService primero
-      debugPrint('🗑️ Eliminando carta $cardId de la colección del usuario');
-      // await _supabaseService.removeCardFromCollection(cardId);
+      debugPrint('🗑️ Eliminando fila $userCardId de la colección');
+      // Usamos un truco: decimos que borre una cantidad enorme para forzar el borrado
+      // (O puedes añadir un método deleteUserCard específico en el servicio si prefieres)
+      await _supabaseService.deleteOrUpdateUserCardQuantity(
+        userCardId: userCardId,
+        quantityToDelete: 999999, // Forzamos que sea mayor que la cantidad actual
+        currentQuantity: 0, 
+      );
     } catch (e) {
       debugPrint('❌ Error en UserCardRepository.removeCardFromCollection: $e');
       rethrow;

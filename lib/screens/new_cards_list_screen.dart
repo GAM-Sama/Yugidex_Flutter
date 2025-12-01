@@ -1,22 +1,20 @@
-import 'package:flutter/material.dart' hide Card; // Evita conflicto
+import 'package:flutter/material.dart' hide Card;
 import 'package:provider/provider.dart';
-// import 'package:cached_network_image/cached_network_image.dart'; // Ya no se usa directamente aquí
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
-import 'package:lucide_icons/lucide_icons.dart'; // Añadir Lucide icons
+import 'package:lucide_icons/lucide_icons.dart';
 
-// --- Imports necesarios ---
 import 'package:yugioh_scanner/shared/widgets/card_detail_panel.dart';
-// import 'package:yugioh_scanner/shared/widgets/collection_toolbar.dart'; // No se usa aquí
+// import 'package:yugioh_scanner/shared/widgets/collection_toolbar.dart'; // ELIMINADO
 import 'package:yugioh_scanner/shared/widgets/filters_dialog.dart';
+import 'package:yugioh_scanner/shared/widgets/flippable_card.dart';
+
 import '../core/theme/app_theme.dart';
-import '../services/supabase_service.dart'; // Importado por si ViewModel lo necesita
+import '../services/supabase_service.dart';
 import '../view_models/processed_cards_view_model.dart';
 import '../view_models/card_filters_view_model.dart';
 import '../models/card_filters.dart';
-import '../models/card_model.dart'; // Importa tu clase 'Card'
-
-// --- NUEVO IMPORT AÑADIDO ---
-import 'package:yugioh_scanner/shared/widgets/flippable_card.dart';
+import '../models/card_model.dart';
+import '../models/user_card_model.dart';
 
 class NewCardsListScreen extends StatefulWidget {
   final String jobId;
@@ -28,43 +26,60 @@ class NewCardsListScreen extends StatefulWidget {
 }
 
 class _NewCardsListScreenState extends State<NewCardsListScreen> {
-  // Ya no se necesita el search controller aquí
-  // final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
+  
+  // Variable para mantener el Stream estable y evitar parpadeos
+  late Stream<List<Card>> _cardsStream;
+  bool _isInit = false;
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _initializeViewModel());
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Inicialización segura antes de pintar
+    if (!_isInit) {
+      final vm = Provider.of<ProcessedCardsViewModel>(context, listen: false);
+      final supabase = Provider.of<SupabaseService>(context, listen: false);
+      
+      vm.initialize(supabase);
+      // Guardamos el Stream aquí para que no se recargue al hacer setState
+      _cardsStream = vm.getProcessedCardsStream(widget.jobId);
+      _isInit = true;
+    }
   }
 
   @override
   void dispose() {
-    // _searchController.dispose(); // Ya no existe
+    _searchController.dispose();
     super.dispose();
   }
 
-  void _initializeViewModel() async {
-    try {
-      final vm = Provider.of<ProcessedCardsViewModel>(context, listen: false);
-      final supabase = Provider.of<SupabaseService>(context, listen: false);
-      vm.initialize(supabase); // Asume que ViewModel usa el servicio
-      await vm.fetchCardsByJobId(widget.jobId);
-    } catch (e) {
-      debugPrint('❌ Error inicializando NewCardsListScreen: $e');
-      // Considera mostrar un mensaje de error al usuario aquí si vm.errorMessage no se actualiza
-       // ... dentro de catch (e) { ...
-      if (mounted) {
-        // Asigna directamente a la propiedad errorMessage y notifica
-        final vm = Provider.of<ProcessedCardsViewModel>(context, listen: false);
-        vm.errorMessage = 'No se pudieron cargar las cartas procesadas.';
-        // ¡IMPORTANTE! Asegúrate de que tu ViewModel llame a notifyListeners()
-        // cuando se cambie errorMessage. Si no, añade vm.notifyListeners(); aquí.
-      }
-// ...
-    }
+  // --- HELPER: LIMPIEZA DE DATOS ---
+  Card _sanitizeCard(Card original) {
+    bool isValid(String? v) => v != null && v.toLowerCase() != 'null' && v.trim().isNotEmpty;
+
+    return Card(
+      idCarta: original.idCarta,
+      cantidad: original.cantidad,
+      nombre: original.nombre,
+      imagen: original.imagen,
+      marcoCarta: isValid(original.marcoCarta) ? original.marcoCarta : null,
+      tipo: isValid(original.tipo) ? original.tipo : null,
+      atributo: isValid(original.atributo) ? original.atributo : null,
+      clasificacion: isValid(original.clasificacion) ? original.clasificacion : null,
+      iconoCarta: isValid(original.iconoCarta) ? original.iconoCarta : null,
+      setExpansion: isValid(original.setExpansion) ? original.setExpansion : null,
+      subtipo: original.subtipo?.where((s) => isValid(s)).toList(),
+      rareza: original.rareza?.where((s) => isValid(s)).toList(),
+      atk: isValid(original.atk) ? original.atk : null,
+      def: isValid(original.def) ? original.def : null,
+      nivelRankLink: original.nivelRankLink,
+      ratioEnlace: original.ratioEnlace,
+      escalaPendulo: original.escalaPendulo,
+      descripcion: original.descripcion,
+    );
   }
 
-  // --- HELPER DE ORDENACIÓN (SIN CAMBIOS) ---
+  // --- 1. HELPER: VALOR DE ORDENACIÓN ---
   String _getCardSortValue(Card card) {
     const Map<String, int> typeOrder = {'Monster': 1, 'Spell': 2, 'Trap': 3};
     const Map<String, int> monsterSubtypeOrder = {
@@ -79,36 +94,19 @@ class _NewCardsListScreenState extends State<NewCardsListScreen> {
 
     final int primary = typeOrder[card.marcoCarta ?? ''] ?? 99;
 
-    // Detección mejorada de tipos especiales usando múltiples campos (igual que en panel de detalles)
     String? getDetectedMonsterType() {
       final marcoLower = card.marcoCarta?.toLowerCase() ?? '';
       final tipoLower = card.tipo?.toLowerCase() ?? '';
       final subtypesLower = (card.subtipo ?? []).map((s) => s.toLowerCase()).toList();
 
-      // Detectar tipos especiales
-      if (marcoLower.contains('link') || tipoLower.contains('link') || subtypesLower.contains('link')) {
-        return 'Link';
-      }
-      if (marcoLower.contains('xyz') || tipoLower.contains('xyz') || subtypesLower.contains('xyz')) {
-        return 'Xyz';
-      }
-      if (marcoLower.contains('pendulum') || tipoLower.contains('pendulum') || subtypesLower.contains('pendulum')) {
-        return 'Pendulum';
-      }
-      if (marcoLower.contains('fusion') || tipoLower.contains('fusion') || subtypesLower.contains('fusion') || subtypesLower.contains('fusión')) {
-        return 'Fusion';
-      }
-      if (marcoLower.contains('synchro') || tipoLower.contains('synchro') || subtypesLower.contains('synchro')) {
-        return 'Synchro';
-      }
-      if (marcoLower.contains('ritual') || tipoLower.contains('ritual') || subtypesLower.contains('ritual')) {
-        return 'Ritual';
-      }
+      if (marcoLower.contains('link') || tipoLower.contains('link') || subtypesLower.contains('link')) return 'Link';
+      if (marcoLower.contains('xyz') || tipoLower.contains('xyz') || subtypesLower.contains('xyz')) return 'Xyz';
+      if (marcoLower.contains('pendulum') || tipoLower.contains('pendulum') || subtypesLower.contains('pendulum')) return 'Pendulum';
+      if (marcoLower.contains('fusion') || tipoLower.contains('fusion') || subtypesLower.contains('fusion')) return 'Fusion';
+      if (marcoLower.contains('synchro') || tipoLower.contains('synchro') || subtypesLower.contains('synchro')) return 'Synchro';
+      if (marcoLower.contains('ritual') || tipoLower.contains('ritual') || subtypesLower.contains('ritual')) return 'Ritual';
 
-      // Si no es tipo especial, usar subtipo o clasificación original
-      if (card.subtipo?.isNotEmpty == true) {
-        return card.subtipo![0];
-      }
+      if (card.subtipo?.isNotEmpty == true) return card.subtipo![0];
       return card.clasificacion;
     }
 
@@ -125,20 +123,18 @@ class _NewCardsListScreenState extends State<NewCardsListScreen> {
     }
     return '${primary.toString().padLeft(2, '0')}-${secondary.toString().padLeft(2, '0')}';
   }
-  // --- HELPER PARA CONSTRUIR TEXTO DE ESTADO (SIN CAMBIOS) ---
-  String _buildStatusText(int validCards, int totalCards, ProcessedCardsViewModel processedVM) {
-    // Calcular cartas fallidas: cartas que no tienen nombre (independientemente de filtros)
-    final failedCards = processedVM.cards.where((card) => card.nombre == null || card.nombre!.isEmpty).length;
 
+  // --- 2. HELPER: TEXTO DE ESTADO ---
+  String _buildStatusText(int validCards, int totalCards, List<Card> allCards) {
+    final failedCards = allCards.where((card) => card.nombre == null || card.nombre!.contains('⚠️')).length;
     if (failedCards == 0) {
       return 'Cartas procesadas ($validCards/$totalCards)';
     } else {
-      return 'Cartas procesadas ($validCards/$totalCards), cartas fallidas ($failedCards)';
+      return 'Cartas procesadas ($validCards/$totalCards), errores ($failedCards)';
     }
   }
-  // --- FIN HELPER ---
 
-  // Helper para obtener el texto del tipo de ordenación (SIN CAMBIOS)
+  // --- 3. HELPER: ETIQUETA DE ORDEN ---
   String _getSortLabel(SortBy sortBy) {
     switch (sortBy) {
       case SortBy.name: return 'Nombre';
@@ -152,283 +148,14 @@ class _NewCardsListScreenState extends State<NewCardsListScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final textTheme = theme.textTheme;
-
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor, // Usa el color del tema
-      body: SafeArea(
-        child: ChangeNotifierProvider(
-          create: (_) => CardFiltersViewModel(),
-          child: Consumer2<ProcessedCardsViewModel, CardFiltersViewModel>(
-            builder: (context, processedVM, filterVM, child) {
-
-              // Aplica filtros y ordenación a las cartas del ProcessedCardsViewModel
-              final processedCards = _applyFilters(processedVM, filterVM);
-
-              if (processedVM.isLoading) {
-                 return Center(
-                   child: Column(
-                     mainAxisAlignment: MainAxisAlignment.center,
-                     children: [
-                       const CircularProgressIndicator(),
-                       const SizedBox(height: AppSpacing.md),
-                       Text(
-                         'Cargando cartas procesadas...',
-                         style: textTheme.bodyMedium,
-                       ),
-                     ],
-                   ),
-                 );
-              }
-
-              if (processedVM.errorMessage != null) {
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.lg),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.error_outline_rounded,
-                          size: 64,
-                          color: theme.colorScheme.error,
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                        Text(
-                          'Error al cargar resultados',
-                          style: textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        Text(
-                          processedVM.errorMessage!,
-                          textAlign: TextAlign.center,
-                          style: textTheme.bodyMedium,
-                        ),
-                        const SizedBox(height: AppSpacing.lg),
-                        ElevatedButton.icon( // Botón para reintentar
-                           icon: const Icon(Icons.refresh),
-                           label: const Text('Reintentar'),
-                           onPressed: _initializeViewModel,
-                         )
-                      ],
-                    ),
-                  ),
-                );
-              }
-
-              if (processedVM.cards.isEmpty) { // Comprueba sobre las originales
-                 return Center(
-                   child: Column(
-                     mainAxisAlignment: MainAxisAlignment.center,
-                     children: [
-                       Icon(
-                         Icons.inventory_2_outlined,
-                         size: 80,
-                         color: theme.disabledColor,
-                       ),
-                       const SizedBox(height: AppSpacing.md),
-                       Text(
-                         'No se procesaron cartas válidas', // Mensaje más claro
-                         style: textTheme.titleMedium,
-                         textAlign: TextAlign.center,
-                       ),
-                       const SizedBox(height: AppSpacing.lg),
-                       ElevatedButton.icon( // Botón para volver
-                          icon: const Icon(Icons.arrow_back),
-                          label: const Text('Volver'),
-                          onPressed: () => Navigator.of(context).pop(),
-                        )
-                     ],
-                   ),
-                 );
-              }
-
-              // --- Estructura principal con Toolbar restaurada ---
-              return Row(
-                children: [
-                  // Show CardDetailPanel only if a card is selected, otherwise show a placeholder
-                  processedVM.selectedCard != null 
-                      ? CardDetailPanel(card: processedVM.selectedCard)
-                      : Container(
-                          width: 300, // Match the width of the CardDetailPanel
-                          color: theme.cardColor,
-                          child: Center(
-                            child: Text(
-                              'Selecciona una carta',
-                              style: textTheme.bodyMedium,
-                            ),
-                          ),
-                        ),
-                  Container(width: 1, color: theme.dividerColor),
-                  Expanded(
-                    flex: 5,
-                    child: Column(
-                      children: [
-                        // --- Barra superior Original (SIN CAMBIOS) ---
-                        Container(
-                          color: theme.colorScheme.surface,
-                          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
-                          child: Row(
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.arrow_back),
-                                color: AppColors.textSecondary,
-                                onPressed: () => Navigator.of(context).pop(),
-                                tooltip: 'Volver',
-                                splashRadius: 20,
-                                constraints: const BoxConstraints(),
-                                padding: const EdgeInsets.only(right: AppSpacing.sm),
-                              ),
-                              Expanded(
-                                child: Text(
-                                  // Muestra contador procesadas válidas/totales y fallidas si las hay
-                                  _buildStatusText(processedCards.length, processedVM.cards.length, processedVM),
-                                  style: textTheme.bodyMedium?.copyWith(fontSize: 14), // Texto más pequeño
-                                  textAlign: TextAlign.center,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              // Botón Ordenar
-                              Tooltip(
-                                message: 'Ordenar por: ${_getSortLabel(filterVM.sortBy)} (${filterVM.sortDirection == SortDirection.asc ? 'Ascendente' : 'Descendente'})',
-                                child: TextButton.icon(
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: AppColors.textSecondary,
-                                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                                  ),
-                                  icon: Icon(
-                                    filterVM.sortDirection == SortDirection.asc ? LucideIcons.arrowUp : LucideIcons.arrowDown,
-                                    size: 16,
-                                    color: AppColors.primary,
-                                  ),
-                                  label: Text(
-                                    _getSortLabel(filterVM.sortBy),
-                                    style: theme.textTheme.bodySmall,
-                                  ),
-                                  onPressed: () => _showSortDialog(context, filterVM),
-                                ),
-                              ),
-                              // Botón Filtrar
-                               Tooltip(
-                                 message: 'Filtros (${_getActiveFiltersCount(filterVM) > 0 ? '${_getActiveFiltersCount(filterVM)} activos' : 'Ninguno'})',
-                                 child: Stack(
-                                   clipBehavior: Clip.none,
-                                   children: [
-                                     IconButton(
-                                       icon: const Icon(LucideIcons.filter),
-                                       color: _getActiveFiltersCount(filterVM) > 0 ? AppColors.primary : AppColors.textSecondary,
-                                       iconSize: 20,
-                                       onPressed: () => _showFilterDialog(context, filterVM),
-                                       splashRadius: 20,
-                                       constraints: const BoxConstraints(),
-                                       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                                     ),
-                                     if (_getActiveFiltersCount(filterVM) > 0)
-                                       Positioned(
-                                         top: -4,
-                                         right: -2,
-                                         child: CircleAvatar(
-                                           radius: 9,
-                                           backgroundColor: AppColors.error,
-                                           child: Text(
-                                             _getActiveFiltersCount(filterVM).toString(),
-                                             style: const TextStyle(
-                                               fontSize: 10,
-                                               color: AppColors.textPrimary,
-                                               fontWeight: FontWeight.bold,
-                                             ),
-                                           ),
-                                         ),
-                                       ),
-                                   ],
-                                 ),
-                               ),
-                            ],
-                          ),
-                        ),
-                        // --- Fin Barra Superior ---
-                        Expanded(
-                          child: processedCards.isEmpty // Comprueba sobre las filtradas
-                              ? Center(
-                                  child: Text(
-                                    'No se encontraron cartas con esos filtros',
-                                    style: textTheme.bodyMedium,
-                                  ),
-                                )
-                              : AnimationLimiter(
-                                  child: GridView.builder(
-                                    padding: const EdgeInsets.all(AppSpacing.md),
-                                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: 6,
-                                      crossAxisSpacing: AppSpacing.sm,
-                                      mainAxisSpacing: AppSpacing.sm,
-                                      childAspectRatio: 0.70,
-                                    ),
-                                    itemCount: processedCards.length,
-                                    itemBuilder: (context, index) {
-                                      final card = processedCards[index];
-                                      final bool isSelected = processedVM.isCardSelected(card);
-
-                                      return AnimationConfiguration.staggeredGrid(
-                                        position: index,
-                                        duration: const Duration(milliseconds: 375),
-                                        columnCount: 6,
-                                        child: ScaleAnimation(
-                                          child: FadeInAnimation(
-                                            child: GestureDetector(
-                                              onTap: () => processedVM.selectCard(card),
-                                              child: Container( // Mantenemos el Container para el borde
-                                                decoration: BoxDecoration(
-                                                  borderRadius: BorderRadius.circular(AppSpacing.sm),
-                                                  border: Border.all(
-                                                    color: isSelected ? AppColors.primary : Colors.transparent,
-                                                    width: 2.5,
-                                                  ),
-                                                ),
-                                                // --- INICIO DE MODIFICACIÓN ---
-                                                child: FlippableCard(
-                                                  imageUrl: card.imagen ?? '',
-                                                  cardBackAsset: 'assets/back-card.png',
-                                                  fit: BoxFit.cover,
-                                                  borderRadius: BorderRadius.circular(AppSpacing.xs),
-                                                  cardData: card, // Asegúrate de pasar los datos de la carta
-                                                ),
-                                                // --- FIN DE MODIFICACIÓN ---
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
-      ),
-    );
-  }
-
-
-  // --- FUNCIONES DE FILTRADO Y ORDENACIÓN (Adaptadas para List<Card>) ---
-  // (SIN CAMBIOS RESPECTO A TU VERSIÓN)
-  List<Card> _applyFilters(
-      ProcessedCardsViewModel processedVM, CardFiltersViewModel filterVM) {
+  // --- 4. LÓGICA DE FILTRADO Y ORDENACIÓN ---
+  List<Card> _applyFilters(List<Card> rawCards, CardFiltersViewModel filterVM) {
     final filters = filterVM.filters;
     final sortBy = filterVM.sortBy;
     final sortDirection = filterVM.sortDirection;
 
-    // 1. Filtrar
-    var filteredCards = processedVM.cards.where((card) { // Itera sobre List<Card>
+    // A. FILTRADO
+    var filteredCards = rawCards.where((card) {
       final query = filters.search.toLowerCase();
       if (query.isNotEmpty) {
         final matchesSearch = (card.nombre?.toLowerCase().contains(query) ?? false) ||
@@ -436,123 +163,88 @@ class _NewCardsListScreenState extends State<NewCardsListScreen> {
         if (!matchesSearch) return false;
       }
       if (filters.cardTypes.isNotEmpty) {
-        final cardType = card.marcoCarta;
-        if (cardType == null || !filters.cardTypes.contains(cardType)) {
-           return false;
-        }
+        if (card.marcoCarta == null || !filters.cardTypes.contains(card.marcoCarta)) return false;
       }
       if (filters.attributes.isNotEmpty) {
-        final attribute = card.atributo;
-        if (attribute == null || !filters.attributes.contains(attribute)) {
-          return false;
-        }
+        if (card.atributo == null || !filters.attributes.contains(card.atributo)) return false;
       }
+      // ... resto de filtros
       if (filters.monsterTypes.isNotEmpty) {
-        final monsterType = card.tipo;
-        if (monsterType == null || !filters.monsterTypes.contains(monsterType)) {
-           return false;
-        }
+        if (card.tipo == null || !filters.monsterTypes.contains(card.tipo)) return false;
       }
       if (filters.spellTrapIcons.isNotEmpty) {
-        final classification = card.clasificacion;
-        if (classification == null || !filters.spellTrapIcons.contains(classification)) {
-           return false;
-        }
+        if (card.clasificacion == null || !filters.spellTrapIcons.contains(card.clasificacion)) return false;
       }
       if (filters.subtypes.isNotEmpty && card.subtipo != null) {
-        final hasMatchingSubtype = card.subtipo!.any((cardSubtype) =>
-            filters.subtypes.contains(cardSubtype));
-        if (!hasMatchingSubtype) return false;
+        if (!card.subtipo!.any((s) => filters.subtypes.contains(s))) return false;
       }
       if (filters.minAtk?.isNotEmpty == true) {
         final minAtk = int.tryParse(filters.minAtk!);
         if (minAtk != null) {
-          final cardAtk = card.atk == '?' ? -1 : (int.tryParse(card.atk ?? '-1') ?? -1);
-          if (cardAtk < minAtk) {
-            return false;
-          }
+          final cardAtk = int.tryParse(card.atk ?? '-1') ?? -1;
+          if (cardAtk < minAtk) return false;
         }
       }
       if (filters.minDef?.isNotEmpty == true) {
         final minDef = int.tryParse(filters.minDef!);
         if (minDef != null) {
-          final cardDef = card.def == '?' ? -1 : (int.tryParse(card.def ?? '-1') ?? -1);
-          if (cardDef < minDef) {
-            return false;
-          }
+          final cardDef = int.tryParse(card.def ?? '-1') ?? -1;
+          if (cardDef < minDef) return false;
         }
       }
       return true;
     }).toList();
 
-    // 2. Ordenar
-    filteredCards.sort((cardA, cardB) { // Compara Card directamente
+    // B. ORDENACIÓN
+    filteredCards.sort((cardA, cardB) {
       int comparison = 0;
       bool sortByMonsterStat = sortBy == SortBy.atk || sortBy == SortBy.def || sortBy == SortBy.level || sortBy == SortBy.rank || sortBy == SortBy.link || sortBy == SortBy.pendulum;
 
       if (sortByMonsterStat) {
-        // Sistema de pesos mejorado: cada tipo arriba cuando se ordene por su estadística
+        // Pesos de tipos
         int getWeight(Card card) {
           final marcoLower = card.marcoCarta?.toLowerCase() ?? '';
           final tipoLower = card.tipo?.toLowerCase() ?? '';
           final subtypesLower = (card.subtipo ?? []).map((s) => s.toLowerCase()).toList();
 
-          // Detectar tipos especiales
           final isLink = marcoLower.contains('link') || tipoLower.contains('link') || subtypesLower.contains('link');
           final isXyz = marcoLower.contains('xyz') || tipoLower.contains('xyz') || subtypesLower.contains('xyz');
           final isPendulum = marcoLower.contains('pendulum') || tipoLower.contains('pendulum') || subtypesLower.contains('pendulum');
 
-          // Prioridad: cada tipo arriba cuando se ordene por su estadística específica
           switch (sortBy) {
-            case SortBy.link:
-              if (isLink) return 0; // Links arriba cuando se ordene por link
-              break;
-            case SortBy.pendulum:
-              if (isPendulum) return 0; // Péndulos arriba cuando se ordene por péndulo
-              break;
-            case SortBy.rank:
-              if (isXyz) return 0; // Xyz arriba cuando se ordene por rango
-              break;
-            case SortBy.level:
-              if (!isLink && !isXyz && !isPendulum && (marcoLower.contains('monster') || marcoLower.contains('monstruo'))) return 0; // Solo monstruos normales arriba
-              break;
-            default:
-              break;
+            case SortBy.link: if (isLink) return 0; break;
+            case SortBy.pendulum: if (isPendulum) return 0; break;
+            case SortBy.rank: if (isXyz) return 0; break;
+            case SortBy.level: if (!isLink && !isXyz && !isPendulum && (marcoLower.contains('monster') || marcoLower.contains('monstruo'))) return 0; break;
+            default: break;
           }
 
-          // Si no es el tipo específico que se está ordenando, usar jerarquía normal
-          if (isLink || isXyz || isPendulum) return 1; // Tipos especiales en medio
-          if (marcoLower.contains('monster') || marcoLower.contains('monstruo')) return 2; // Monstruos normales
-          return 3; // Magias/Trampas abajo del todo
+          if (isLink || isXyz || isPendulum) return 1;
+          if (marcoLower.contains('monster') || marcoLower.contains('monstruo')) return 2;
+          return 3;
         }
 
         final int weightA = getWeight(cardA);
         final int weightB = getWeight(cardB);
-
-        // PRIMERO: Ordenar por peso (tipo específico primero, luego otros)
         comparison = weightA.compareTo(weightB);
 
-        // SEGUNDO: Si son del mismo peso, aplicar ordenación específica
         if (comparison == 0) {
           if (weightA <= 1) {
-            // Tipos especiales o monstruos normales - ordenar por estadística específica
             switch (sortBy) {
               case SortBy.atk:
-                final atkA = cardA.atk == '?' ? 0 : (int.tryParse(cardA.atk ?? '0') ?? 0);
-                final atkB = cardB.atk == '?' ? 0 : (int.tryParse(cardB.atk ?? '0') ?? 0);
+                final atkA = int.tryParse(cardA.atk ?? '0') ?? 0;
+                final atkB = int.tryParse(cardB.atk ?? '0') ?? 0;
                 comparison = atkA.compareTo(atkB);
                 break;
               case SortBy.def:
-                final defA = cardA.def == '?' ? 0 : (int.tryParse(cardA.def ?? '0') ?? 0);
-                final defB = cardB.def == '?' ? 0 : (int.tryParse(cardB.def ?? '0') ?? 0);
+                final defA = int.tryParse(cardA.def ?? '0') ?? 0;
+                final defB = int.tryParse(cardB.def ?? '0') ?? 0;
                 comparison = defA.compareTo(defB);
                 break;
               case SortBy.level:
-                // Solo ordenar monstruos normales por nivel
                 comparison = (cardA.nivelRankLink ?? 0).compareTo(cardB.nivelRankLink ?? 0);
                 break;
               case SortBy.rank:
-                // Solo ordenar Xyz por rango
                 comparison = (cardA.nivelRankLink ?? 0).compareTo(cardB.nivelRankLink ?? 0);
                 break;
               case SortBy.link:
@@ -566,17 +258,11 @@ class _NewCardsListScreenState extends State<NewCardsListScreen> {
                 break;
             }
           } else {
-            // Magias/trampas - ordenar por nombre
             comparison = (cardA.nombre ?? '').compareTo(cardB.nombre ?? '');
           }
-
-          // Aplicar dirección solo a la ordenación específica, no al peso
-          if (sortDirection == SortDirection.desc) {
-            comparison = comparison * -1;
-          }
+          if (sortDirection == SortDirection.desc) comparison *= -1;
         }
       } else {
-        // Para otros tipos de ordenación (nombre, tipo de carta), usar la lógica normal
         switch (sortBy) {
           case SortBy.name:
             comparison = (cardA.nombre ?? '').compareTo(cardB.nombre ?? '');
@@ -590,42 +276,34 @@ class _NewCardsListScreenState extends State<NewCardsListScreen> {
             comparison = 0;
             break;
         }
-
-        // Aplicar dirección a la ordenación normal
-        if (sortDirection == SortDirection.desc) {
-          comparison = comparison * -1;
-        }
+        if (sortDirection == SortDirection.desc) comparison *= -1;
       }
 
       return comparison;
     });
+
     return filteredCards;
   }
 
-  // (SIN CAMBIOS)
+  // --- 5. UTILS ---
   int _getActiveFiltersCount(CardFiltersViewModel vm) {
-     final f = vm.filters;
-    return f.cardTypes.length +
-        f.attributes.length +
-        f.monsterTypes.length +
-        f.subtypes.length +
-        f.spellTrapIcons.length +
-        ((f.minAtk?.isNotEmpty ?? false) ? 1 : 0) +
-        ((f.minDef?.isNotEmpty ?? false) ? 1 : 0);
+    final f = vm.filters;
+    return f.cardTypes.length + f.attributes.length + f.monsterTypes.length +
+        f.subtypes.length + f.spellTrapIcons.length +
+        ((f.minAtk?.isNotEmpty ?? false) ? 1 : 0) + ((f.minDef?.isNotEmpty ?? false) ? 1 : 0);
   }
 
-  // (SIN CAMBIOS)
   void _showSortDialog(BuildContext context, CardFiltersViewModel vm) {
-     final theme = Theme.of(context);
+    final theme = Theme.of(context);
     final List<Map<String, dynamic>> sortOptions = [
-      {'value': SortBy.name, 'label': 'Nombre', 'icon': Icons.sort_by_alpha, 'color': AppColors.primary},
-      {'value': SortBy.atk, 'label': 'Ataque', 'icon': Icons.flash_on, 'color': Colors.orangeAccent},
-      {'value': SortBy.def, 'label': 'Defensa', 'icon': Icons.shield, 'color': Colors.cyan},
-      {'value': SortBy.level, 'label': 'Nivel', 'icon': Icons.star, 'color': Colors.yellowAccent},
-      {'value': SortBy.rank, 'label': 'Rango (Xyz)', 'icon': Icons.diamond, 'color': Colors.black},
-      {'value': SortBy.link, 'label': 'Link (Ratio)', 'icon': Icons.link, 'color': const Color(0xFF0077CC)},
-      {'value': SortBy.pendulum, 'label': 'Escala Péndulo', 'icon': Icons.balance, 'color': Colors.purpleAccent},
-      {'value': SortBy.cardType, 'label': 'Tipo de Carta', 'icon': Icons.style, 'color': Colors.grey},
+      {'value': SortBy.name, 'label': 'Nombre', 'icon': LucideIcons.type, 'color': AppColors.primary},
+      {'value': SortBy.atk, 'label': 'Ataque', 'icon': LucideIcons.sword, 'color': Colors.orangeAccent},
+      {'value': SortBy.def, 'label': 'Defensa', 'icon': LucideIcons.shield, 'color': Colors.cyan},
+      {'value': SortBy.level, 'label': 'Nivel', 'icon': LucideIcons.star, 'color': Colors.yellowAccent},
+      {'value': SortBy.rank, 'label': 'Rango (Xyz)', 'icon': LucideIcons.gem, 'color': Colors.black},
+      {'value': SortBy.link, 'label': 'Link (Ratio)', 'icon': LucideIcons.link, 'color': const Color(0xFF0077CC)},
+      {'value': SortBy.pendulum, 'label': 'Escala Péndulo', 'icon': LucideIcons.scale, 'color': Colors.purpleAccent},
+      {'value': SortBy.cardType, 'label': 'Tipo de Carta', 'icon': LucideIcons.layers, 'color': Colors.grey},
     ];
 
     showDialog(
@@ -642,17 +320,11 @@ class _NewCardsListScreenState extends State<NewCardsListScreen> {
               final sortByValue = option['value'] as SortBy;
               final isSelected = vm.sortBy == sortByValue;
               return ListTile(
-                leading: Icon(option['icon'] as IconData, color: option['color'] as Color),
-                title: Text(option['label'] as String, style: theme.textTheme.bodyLarge),
-                trailing: isSelected
-                    ? Icon(
-                        vm.sortDirection == SortDirection.asc ? Icons.arrow_upward : Icons.arrow_downward,
-                        color: AppColors.primary,
-                        size: 20,
-                      )
-                    : null,
+                leading: Icon(option['icon'], color: option['color']),
+                title: Text(option['label']),
+                trailing: isSelected ? Icon(LucideIcons.check, color: AppColors.primary) : null,
                 onTap: () {
-                  vm.setSort(sortByValue);
+                  vm.setSort(option['value']);
                   Navigator.pop(context);
                 },
               );
@@ -669,8 +341,248 @@ class _NewCardsListScreenState extends State<NewCardsListScreen> {
     );
   }
 
-  // (SIN CAMBIOS)
   void _showFilterDialog(BuildContext context, CardFiltersViewModel vm) {
-     showDialog(context: context, builder: (_) => FiltersDialog(viewModel: vm),);
+     showDialog(context: context, builder: (_) => FiltersDialog(viewModel: vm));
   }
-} // <-- FIN DE LA CLASE
+
+  // --- INTERFAZ PRINCIPAL ---
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
+
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: SafeArea(
+        child: ChangeNotifierProvider(
+          create: (_) => CardFiltersViewModel(),
+          child: Consumer2<ProcessedCardsViewModel, CardFiltersViewModel>(
+            builder: (context, processedVM, filterVM, child) {
+              
+              // 🔥 USAMOS EL STREAM GUARDADO
+              return StreamBuilder<List<Card>>(
+                stream: _cardsStream, 
+                builder: (context, snapshot) {
+                  
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const CircularProgressIndicator(),
+                          const SizedBox(height: AppSpacing.md),
+                          Text('Cargando...', style: textTheme.bodyMedium),
+                        ],
+                      ),
+                    );
+                  }
+
+                  if (snapshot.hasError) {
+                     return Center(child: Text('Error: ${snapshot.error}'));
+                  }
+
+                  final allCards = snapshot.data ?? [];
+                  final processedCards = _applyFilters(allCards, filterVM);
+
+                  // Auto-selección
+                  if (processedVM.selectedCard == null && processedCards.isNotEmpty) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                         if (processedVM.selectedCard == null) {
+                            processedVM.selectCard(processedCards.first);
+                         }
+                      });
+                  }
+                  
+                  // 🔥 WRAPPER USER CARD + SANITIZACIÓN
+                  UserCard? selectedUserCard;
+                  if (processedVM.selectedCard != null) {
+                      // 1. Limpiamos la carta de valores "null" molestos
+                      final cleanCard = _sanitizeCard(processedVM.selectedCard!);
+                      
+                      // 2. Creamos el objeto para el panel
+                      selectedUserCard = UserCard(
+                        userCardId: 'preview', 
+                        quantity: cleanCard.cantidad, 
+                        condition: 'Mint', 
+                        acquiredDate: DateTime.now(),
+                        cardDetails: cleanCard 
+                      );
+                  }
+
+                  if (allCards.isEmpty) {
+                     return Center(child: Text("Esperando datos...", style: textTheme.bodyMedium));
+                  }
+
+                  return Row(
+                    children: [
+                      // --- PANEL IZQUIERDO ---
+                      selectedUserCard != null 
+                          ? CardDetailPanel(userCard: selectedUserCard, isUserCollection: false)
+                          : Container(
+                              width: 300, color: theme.cardColor,
+                              child: Center(child: Text('Selecciona una carta', style: textTheme.bodyMedium)),
+                            ),
+                      Container(width: 1, color: theme.dividerColor),
+                      
+                      // --- PANEL DERECHO ---
+                      Expanded(
+                        flex: 5,
+                        child: Column(
+                          children: [
+                            
+                            // --- BARRA SUPERIOR MANUAL (Sin CollectionToolbar) ---
+                            Container(
+                              color: theme.colorScheme.surface,
+                              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+                              child: Row(
+                                children: [
+                                  // Botón Volver
+                                  IconButton(
+                                    icon: const Icon(Icons.arrow_back),
+                                    color: AppColors.textSecondary,
+                                    onPressed: () => Navigator.of(context).pop(),
+                                    tooltip: 'Volver',
+                                  ),
+                                  // Texto Estado
+                                  Expanded(
+                                    child: Text(
+                                      _buildStatusText(processedCards.length, allCards.length, allCards),
+                                      style: textTheme.bodyMedium?.copyWith(fontSize: 14),
+                                      textAlign: TextAlign.center,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  // Botón Ordenar
+                                  Tooltip(
+                                    message: 'Ordenar',
+                                    child: TextButton.icon(
+                                      style: TextButton.styleFrom(
+                                        foregroundColor: AppColors.textSecondary,
+                                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                                      ),
+                                      icon: Icon(
+                                        filterVM.sortDirection == SortDirection.asc ? LucideIcons.arrowUp : LucideIcons.arrowDown,
+                                        size: 16,
+                                        color: AppColors.primary,
+                                      ),
+                                      label: Text(
+                                        _getSortLabel(filterVM.sortBy),
+                                        style: theme.textTheme.bodySmall,
+                                      ),
+                                      onPressed: () => _showSortDialog(context, filterVM),
+                                    ),
+                                  ),
+                                  // Botón Filtrar
+                                  Tooltip(
+                                    message: 'Filtros',
+                                    child: Stack(
+                                      clipBehavior: Clip.none,
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(LucideIcons.filter),
+                                          color: _getActiveFiltersCount(filterVM) > 0 ? AppColors.primary : AppColors.textSecondary,
+                                          iconSize: 20,
+                                          onPressed: () => _showFilterDialog(context, filterVM),
+                                        ),
+                                        if (_getActiveFiltersCount(filterVM) > 0)
+                                          Positioned(
+                                            top: 4,
+                                            right: 4,
+                                            child: CircleAvatar(
+                                              radius: 6,
+                                              backgroundColor: AppColors.error,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            
+                            // --- GRID DE CARTAS ---
+                            Expanded(
+                              child: processedCards.isEmpty
+                                  ? Center(child: Text('No hay cartas con estos filtros'))
+                                  : AnimationLimiter(
+                                      child: GridView.builder(
+                                        padding: const EdgeInsets.all(AppSpacing.md),
+                                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                          crossAxisCount: 6, childAspectRatio: 0.70,
+                                          crossAxisSpacing: AppSpacing.sm, mainAxisSpacing: AppSpacing.sm,
+                                        ),
+                                        itemCount: processedCards.length,
+                                        itemBuilder: (context, index) {
+                                          final card = processedCards[index];
+                                          final bool isSelected = (processedVM.selectedCard != null) 
+                                              ? processedVM.isCardSelected(card) 
+                                              : (index == 0);
+                                          final isError = card.nombre?.contains('⚠️') ?? false;
+
+                                          return AnimationConfiguration.staggeredGrid(
+                                            position: index, duration: const Duration(milliseconds: 375),
+                                            columnCount: 6,
+                                            child: ScaleAnimation(
+                                              child: FadeInAnimation(
+                                                child: GestureDetector(
+                                                  onTap: () => processedVM.selectCard(card),
+                                                  child: Stack(
+                                                    children: [
+                                                      Container(
+                                                        decoration: BoxDecoration(
+                                                          borderRadius: BorderRadius.circular(AppSpacing.sm),
+                                                          border: Border.all(
+                                                            color: isError ? Colors.red : (isSelected ? AppColors.primary : Colors.transparent),
+                                                            width: 2.5,
+                                                          ),
+                                                        ),
+                                                        child: FlippableCard(
+                                                          imageUrl: card.imagen ?? '',
+                                                          cardBackAsset: 'assets/back-card.png',
+                                                          fit: BoxFit.cover,
+                                                          borderRadius: BorderRadius.circular(AppSpacing.xs),
+                                                          cardData: card,
+                                                        ),
+                                                      ),
+                                                      if (card.cantidad > 1)
+                                                        Positioned(
+                                                          bottom: 4, right: 4,
+                                                          child: Container(
+                                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                            decoration: BoxDecoration(
+                                                              color: Colors.yellow,
+                                                              borderRadius: BorderRadius.circular(8),
+                                                              border: Border.all(color: Colors.black)
+                                                            ),
+                                                            child: Text('x${card.cantidad}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Colors.black)),
+                                                          ),
+                                                        ),
+                                                       if (isError)
+                                                        Positioned(
+                                                          top: 4, right: 4,
+                                                          child: Icon(LucideIcons.alertTriangle, color: Colors.red, size: 18),
+                                                        )
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
