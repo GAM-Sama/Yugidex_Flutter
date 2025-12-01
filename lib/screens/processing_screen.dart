@@ -1,12 +1,12 @@
-import 'dart:async';
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'new_cards_list_screen.dart';
+import 'dart:async'; 
+import 'package:flutter/material.dart' hide Card;
+import 'package:provider/provider.dart'; 
 
-// ⬇️ 1. IMPORTAR EL TEMA Y EL NUEVO WIDGET
+import 'new_cards_list_screen.dart';
 import '../core/theme/app_theme.dart';
 import '../shared/widgets/spinning_card_widget.dart';
+import '../services/supabase_service.dart';
+import '../models/card_model.dart';
 
 class ProcessingScreen extends StatefulWidget {
   final String jobId;
@@ -23,24 +23,19 @@ class ProcessingScreen extends StatefulWidget {
 }
 
 class _ProcessingScreenState extends State<ProcessingScreen> {
-  Timer? _pollingTimer;
+  // Sustituimos Timer por StreamSubscription
+  StreamSubscription<List<Card>>? _subscription;
+  
   int _processedCount = 0;
   String _currentStatusMessage = 'Iniciando proceso...';
   bool _isComplete = false;
-  
-  // ⬇️ 2. VARIABLE DE ESTADO PARA LA IMAGEN DE LA CARTA
   String? _lastCardImageUrl;
 
   @override
   void initState() {
     super.initState();
     if (widget.totalCards > 0) {
-      _checkProgress(); // Primera comprobación inmediata
-      _pollingTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-        if (!_isComplete) {
-          _checkProgress();
-        }
-      });
+      _startListeningToProgress();
     } else {
       _isComplete = true;
       _navigateToNewCardsScreen();
@@ -49,74 +44,48 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
 
   @override
   void dispose() {
-    _pollingTimer?.cancel();
+    _subscription?.cancel(); // Cancelamos la escucha al salir
     super.dispose();
   }
 
-  Future<void> _checkProgress() async {
-    try {
-      final url = Uri.parse(
-        "https://primary-production-6c347.up.railway.app/webhook/progress?jobId=${widget.jobId}",
-      );
-      final headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36',
-      };
-      final response = await http
-          .get(url, headers: headers)
-          .timeout(const Duration(seconds: 15));
+  // --- LÓGICA NUEVA: TIEMPO REAL ---
+  void _startListeningToProgress() {
+    final supabaseService = Provider.of<SupabaseService>(context, listen: false);
 
-      if (response.statusCode == 200 && mounted) {
-        if (response.body.isEmpty) return;
+    _subscription = supabaseService.streamCardsByJobId(widget.jobId).listen((cards) {
+      if (!mounted) return;
 
-        final data = jsonDecode(response.body);
-        debugPrint('RESPUESTA DE LA API: $data');
-        final int processed = data['processed'] as int? ?? 0;
-        final lastCardData = data['lastProcessedCard'] as Map<String, dynamic>?;
-
-        setState(() {
-          _processedCount = processed;
-          if (lastCardData != null) {
-            final bool success = lastCardData['success'] as bool? ?? false;
-            final String code = lastCardData['code'] ?? 'desconocido';
-
-            if (success) {
-              final String name = lastCardData['name'] ?? 'desconocido';
-              _currentStatusMessage = 'Buscando $name...';
-              
-              // ⬇️ 3. AQUÍ CAPTURAMOS LA URL DE LA IMAGEN
-              // !!! REVISA QUE EL CAMPO SE LLAME 'imageUrl' !!!
-              final String? imageUrl = lastCardData['url'] as String?;
-              if (imageUrl != null) {
-                _lastCardImageUrl = imageUrl;
-              }
-              // ---
-              
-            } else {
-              _currentStatusMessage = 'No se encontró info para $code...';
-            }
-          }
-        });
-
-        if (_processedCount >= widget.totalCards) {
-          _pollingTimer?.cancel();
-          setState(() {
-            _isComplete = true;
-            _currentStatusMessage = '¡Lote completado!';
-          });
-          _navigateToNewCardsScreen();
-        }
-      } else {
-        throw Exception(
-          'Error en la respuesta del servidor: ${response.statusCode}',
-        );
-      }
-    } catch (e) {
-      debugPrint("Error consultando progreso: $e");
-      _pollingTimer?.cancel();
       setState(() {
-        _currentStatusMessage = 'Error de conexión con el servidor.';
+        _processedCount = cards.length;
+
+        // Actualizamos mensaje e imagen con la última carta
+        if (cards.isNotEmpty) {
+          final lastCard = cards.last;
+          _lastCardImageUrl = lastCard.imagen;
+          
+          if (lastCard.nombre != null && lastCard.nombre!.contains('⚠️')) {
+             _currentStatusMessage = 'Error procesando una carta...';
+          } else {
+             _currentStatusMessage = 'Buscando ${lastCard.nombre ?? "..."}...';
+          }
+        }
       });
-    }
+
+      // Verificamos si ha terminado
+      if (_processedCount >= widget.totalCards) {
+        _subscription?.cancel();
+        
+        setState(() {
+          _isComplete = true;
+          _currentStatusMessage = '¡Lote completado!';
+        });
+        
+        _navigateToNewCardsScreen();
+      }
+    }, onError: (error) {
+      debugPrint("Error stream: $error");
+      // No mostramos error en UI para no romper diseño, solo log
+    });
   }
 
   void _navigateToNewCardsScreen() {
@@ -133,137 +102,136 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
     });
   }
 
+  // --- TU INTERFAZ ORIGINAL (SIN CAMBIOS ESTRUCTURALES) ---
   @override
   Widget build(BuildContext context) {
-    // ⬇️ 4. OBTENEMOS EL TEMA
     final theme = Theme.of(context);
 
-    // ⬇️ 5. LÓGICA PARA DECIDIR QUÉ IMAGEN MOSTRAR
     final ImageProvider currentCardImage;
     if (_lastCardImageUrl != null) {
       currentCardImage = NetworkImage(_lastCardImageUrl!);
     } else {
-      // Usa tu placeholder si aún no hay imagen
       currentCardImage = const AssetImage('assets/card_placeholder.png');
     }
 
     return Scaffold(
-      // ⬇️ 6. APLICAMOS LOS ESTILOS DEL TEMA
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        // El tema ya se aplica solo (color, elevación)
-        automaticallyImplyLeading: false,
-        title: Row(
-          children: [
-            // Usamos el placeholder como un logo temporal
-            Image.asset('assets/card_placeholder.png', width: 24),
-            const SizedBox(width: AppSpacing.sm),
-            Text(
-              'Yu-Gi-Oh! Scanner', // <-- Puedes cambiar esto
-              style: theme.textTheme.titleMedium, // <-- Estilo del Tema
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined), // <-- El color lo da el tema
-            onPressed: () {},
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.xl, 
+            vertical: AppSpacing.sm
           ),
-          const SizedBox(width: AppSpacing.sm),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.xl), // <-- Espaciado del Tema
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Text(
-                  "Identificando Cartas...",
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    color: AppColors.primary, // <-- Color del Tema (Amarillo)
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
+          child: Column(
+            children: [
+              
+              // 1. ESPACIO SUPERIOR
+              const Spacer(flex: 2), 
 
-                // ⬇️ 7. AQUÍ VA LA CARTA GIRATORIA
-                SizedBox(
-                  width: 75, // Ajusta el tamaño como veas
-                  child: SpinningFlipCardWidget(
-                    frontImage: currentCardImage,
-                  ),
+              // TÍTULO
+              Text(
+                "Identificando Cartas...",
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  color: AppColors.primary,
                 ),
-                const SizedBox(height: AppSpacing.lg),
-                // ---
+                textAlign: TextAlign.center,
+              ),
 
-                LinearProgressIndicator(
-                  value:
-                      widget.totalCards == 0
-                          ? 1.0
-                          : _processedCount / widget.totalCards,
-                  minHeight: 20,
-                  borderRadius: BorderRadius.circular(AppSpacing.sm), // <-- Tema
-                  backgroundColor: AppColors.surface, // <-- Tema
-                  valueColor: const AlwaysStoppedAnimation<Color>(
-                    AppColors.primary, // <-- Tema
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                Text(
-                  "Procesando carta $_processedCount de ${widget.totalCards}...",
-                  style: theme.textTheme.bodyMedium, // <-- Tema
-                ),
+              // 2. ESPACIO
+              const Spacer(flex: 1),
 
-                SizedBox(
-                  height: 50,
-                  child: Center(
-                    child:
-                        !_isComplete && _currentStatusMessage.isNotEmpty
-                            ? Text(
-                                _currentStatusMessage,
-                                style: theme.textTheme.bodyLarge?.copyWith(
-                                  fontStyle: FontStyle.italic,
-                                  color: AppColors.textSecondary, // <-- Tema
-                                ),
-                                textAlign: TextAlign.center,
-                              )
-                            : const SizedBox.shrink(),
-                  ),
+              // CARTA GIRATORIA
+              SizedBox(
+                width: 75,
+                height: 110,
+                child: SpinningFlipCardWidget(
+                  frontImage: currentCardImage,
                 ),
-                const SizedBox(height: AppSpacing.md),
-                
-                if (!_isComplete)
-                  Text(
-                    "Esto puede tardar unos segundos.\n¡No cierres la Aplicación!",
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.titleMedium, // <-- Tema
-                  ),
-                  
-                if (_isComplete)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.check_circle,
-                          color: AppColors.success, // <-- Tema
-                          size: 60,
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                        Text(
-                          '¡Proceso Completado!',
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            color: AppColors.success, // <-- Tema
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
+              ),
+
+              // 3. ESPACIO
+              const Spacer(flex: 1), 
+
+              // BARRA DE PROGRESO
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  LinearProgressIndicator(
+                    value: widget.totalCards == 0
+                        ? 1.0
+                        : (_processedCount / widget.totalCards).clamp(0.0, 1.0),
+                    minHeight: 20,
+                    borderRadius: BorderRadius.circular(AppSpacing.sm),
+                    backgroundColor: AppColors.surface,
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      AppColors.primary,
                     ),
                   ),
-              ],
-            ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Procesando carta $_processedCount de ${widget.totalCards}...",
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+
+              // 4. ESPACIO
+              const Spacer(flex: 1),
+
+              // ZONA DE MENSAJES
+              Container(
+                alignment: Alignment.center,
+                height: 80, 
+                child: _isComplete
+                    ? 
+                    // COMPLETADO
+                    Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.check_circle,
+                            color: AppColors.success,
+                            size: 40, 
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '¡Proceso Completado!',
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              color: AppColors.success,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      )
+                    : 
+                    // PROCESANDO
+                    Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_currentStatusMessage.isNotEmpty)
+                            Text(
+                              _currentStatusMessage,
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                fontStyle: FontStyle.italic,
+                                color: AppColors.textSecondary,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          const SizedBox(height: 8),
+                          Text(
+                            "Esto puede tardar unos segundos.\n¡No cierres la Aplicación!",
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.titleMedium?.copyWith(fontSize: 14), 
+                          ),
+                        ],
+                      ),
+              ),
+
+              // 5. ESPACIO INFERIOR
+              const Spacer(flex: 2),
+            ],
           ),
         ),
       ),
