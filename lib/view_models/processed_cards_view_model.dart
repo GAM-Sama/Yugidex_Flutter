@@ -8,7 +8,7 @@ class ProcessedCardsViewModel extends ChangeNotifier {
 
   List<Card> _cards = [];
   Card? _selectedCard;
-  bool _isLoading = true;  // Estado inicial: está cargando
+  bool _isLoading = true;
   String? _errorMessage;
 
   List<Card> get cards => _cards;
@@ -25,7 +25,17 @@ class ProcessedCardsViewModel extends ChangeNotifier {
     _supabaseService = supabaseService;
   }
 
-  /// Carga las cartas procesadas de un lote específico
+  /// 🔥 NUEVO MÉTODO: Obtiene el Stream de datos en tiempo real
+  /// Este es el que usará tu StreamBuilder en la pantalla
+  Stream<List<Card>> getProcessedCardsStream(String jobId) {
+    if (_supabaseService == null) {
+      // Devolvemos un error como Stream si el servicio no está listo
+      return Stream.error('Servicio no inicializado');
+    }
+    return _supabaseService!.streamCardsByJobId(jobId);
+  }
+
+  /// Mantenemos este método por compatibilidad (o para refresco manual)
   Future<void> fetchCardsByJobId(String jobId) async {
     if (_supabaseService == null) {
       _errorMessage = 'Servicio no inicializado';
@@ -38,6 +48,8 @@ class ProcessedCardsViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // Nota: Asegúrate de que tu servicio tenga implementado getCardsByJobId
+      // (aunque sea la versión antigua que devuelve Future)
       _cards = await _supabaseService!.getCardsByJobId(jobId);
 
       if (_cards.isNotEmpty) {
@@ -55,16 +67,14 @@ class ProcessedCardsViewModel extends ChangeNotifier {
   }
 
   void selectCard(Card card) {
-    // Usar identical() para comparar referencias de objetos
     if (_selectedCard == card) {
-      _selectedCard = null; // Deseleccionar si es la misma instancia
+      _selectedCard = null;
     } else {
-      _selectedCard = card; // Seleccionar la nueva instancia
+      _selectedCard = card;
     }
     notifyListeners();
   }
 
-  // Método auxiliar para verificar si una carta está seleccionada
   bool isCardSelected(Card card) {
     return identical(_selectedCard, card);
   }

@@ -1,13 +1,12 @@
-import 'dart:async';
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'new_cards_list_screen.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'dart:async'; 
+import 'package:flutter/material.dart' hide Card;
+import 'package:provider/provider.dart'; 
 
-// ⬇️ IMPORTACIONES DE TU PROYECTO
+import 'new_cards_list_screen.dart';
 import '../core/theme/app_theme.dart';
 import '../shared/widgets/spinning_card_widget.dart';
+import '../services/supabase_service.dart';
+import '../models/card_model.dart';
 
 class ProcessingScreen extends StatefulWidget {
   final String jobId;
@@ -24,24 +23,19 @@ class ProcessingScreen extends StatefulWidget {
 }
 
 class _ProcessingScreenState extends State<ProcessingScreen> {
-  Timer? _pollingTimer;
+  // Sustituimos Timer por StreamSubscription
+  StreamSubscription<List<Card>>? _subscription;
+  
   int _processedCount = 0;
   String _currentStatusMessage = 'Iniciando proceso...';
   bool _isComplete = false;
-  
-  // Variable para la imagen dinámica
   String? _lastCardImageUrl;
 
   @override
   void initState() {
     super.initState();
     if (widget.totalCards > 0) {
-      _checkProgress(); // Primera comprobación inmediata
-      _pollingTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-        if (!_isComplete) {
-          _checkProgress();
-        }
-      });
+      _startListeningToProgress();
     } else {
       _isComplete = true;
       _navigateToNewCardsScreen();
@@ -50,82 +44,48 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
 
   @override
   void dispose() {
-    _pollingTimer?.cancel();
+    _subscription?.cancel(); // Cancelamos la escucha al salir
     super.dispose();
   }
 
-  Future<void> _checkProgress() async {
-    try {
-      // --- Cargar URL completa del .env ---
-      // (Asumimos que en el .env tienes la ruta completa hasta /progress)
-      final baseUrl = dotenv.env['PROCESS_URL'] ?? '';
-      
-      if (baseUrl.isEmpty) {
-        debugPrint('⚠️ ERROR: La variable PROCESS_URL no está definida en el .env');
-        throw Exception('Falta configuración de entorno');
-      }
+  // --- LÓGICA NUEVA: TIEMPO REAL ---
+  void _startListeningToProgress() {
+    final supabaseService = Provider.of<SupabaseService>(context, listen: false);
 
-      // Añadimos solo el parámetro jobId
-      final url = Uri.parse("$baseUrl?jobId=${widget.jobId}");
+    _subscription = supabaseService.streamCardsByJobId(widget.jobId).listen((cards) {
+      if (!mounted) return;
 
-      final headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36',
-      };
-      
-      final response = await http
-          .get(url, headers: headers)
-          .timeout(const Duration(seconds: 15));
-
-      if (response.statusCode == 200 && mounted) {
-        if (response.body.isEmpty) return;
-
-        final data = jsonDecode(response.body);
-        debugPrint('RESPUESTA DE LA API: $data');
-        final int processed = data['processed'] as int? ?? 0;
-        final lastCardData = data['lastProcessedCard'] as Map<String, dynamic>?;
-
-        setState(() {
-          _processedCount = processed;
-          if (lastCardData != null) {
-            final bool success = lastCardData['success'] as bool? ?? false;
-            final String code = lastCardData['code'] ?? 'desconocido';
-
-            if (success) {
-              final String name = lastCardData['name'] ?? 'desconocido';
-              _currentStatusMessage = 'Buscando $name...';
-              
-              // Capturamos URL de la imagen
-              final String? imageUrl = lastCardData['url'] as String?;
-              if (imageUrl != null) {
-                _lastCardImageUrl = imageUrl;
-              }
-              
-            } else {
-              _currentStatusMessage = 'No se encontró info para $code...';
-            }
-          }
-        });
-
-        if (_processedCount >= widget.totalCards) {
-          _pollingTimer?.cancel();
-          setState(() {
-            _isComplete = true;
-            _currentStatusMessage = '¡Lote completado!';
-          });
-          _navigateToNewCardsScreen();
-        }
-      } else {
-        throw Exception(
-          'Error en la respuesta del servidor: ${response.statusCode}',
-        );
-      }
-    } catch (e) {
-      debugPrint("Error consultando progreso: $e");
-      _pollingTimer?.cancel();
       setState(() {
-        _currentStatusMessage = 'Error de conexión con el servidor.';
+        _processedCount = cards.length;
+
+        // Actualizamos mensaje e imagen con la última carta
+        if (cards.isNotEmpty) {
+          final lastCard = cards.last;
+          _lastCardImageUrl = lastCard.imagen;
+          
+          if (lastCard.nombre != null && lastCard.nombre!.contains('⚠️')) {
+             _currentStatusMessage = 'Error procesando una carta...';
+          } else {
+             _currentStatusMessage = 'Buscando ${lastCard.nombre ?? "..."}...';
+          }
+        }
       });
-    }
+
+      // Verificamos si ha terminado
+      if (_processedCount >= widget.totalCards) {
+        _subscription?.cancel();
+        
+        setState(() {
+          _isComplete = true;
+          _currentStatusMessage = '¡Lote completado!';
+        });
+        
+        _navigateToNewCardsScreen();
+      }
+    }, onError: (error) {
+      debugPrint("Error stream: $error");
+      // No mostramos error en UI para no romper diseño, solo log
+    });
   }
 
   void _navigateToNewCardsScreen() {
@@ -142,11 +102,11 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
     });
   }
 
+  // --- TU INTERFAZ ORIGINAL (SIN CAMBIOS ESTRUCTURALES) ---
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    // Decidir imagen: red o asset
     final ImageProvider currentCardImage;
     if (_lastCardImageUrl != null) {
       currentCardImage = NetworkImage(_lastCardImageUrl!);
@@ -165,10 +125,10 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
           child: Column(
             children: [
               
-              // ⬇️ 1. ESPACIO SUPERIOR (Empuja todo hacia abajo)
+              // 1. ESPACIO SUPERIOR
               const Spacer(flex: 2), 
 
-              // --- TÍTULO ---
+              // TÍTULO
               Text(
                 "Identificando Cartas...",
                 style: theme.textTheme.headlineMedium?.copyWith(
@@ -177,10 +137,10 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
                 textAlign: TextAlign.center,
               ),
 
-              // ⬇️ 2. Espacio entre Título y Carta
+              // 2. ESPACIO
               const Spacer(flex: 1),
 
-              // --- CARTA GIRATORIA ---
+              // CARTA GIRATORIA
               SizedBox(
                 width: 75,
                 height: 110,
@@ -189,17 +149,17 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
                 ),
               ),
 
-              // ⬇️ 3. ESPACIO CLAVE: Separa la carta de la barra
+              // 3. ESPACIO
               const Spacer(flex: 1), 
 
-              // --- BARRA DE PROGRESO ---
+              // BARRA DE PROGRESO
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   LinearProgressIndicator(
                     value: widget.totalCards == 0
                         ? 1.0
-                        : _processedCount / widget.totalCards,
+                        : (_processedCount / widget.totalCards).clamp(0.0, 1.0),
                     minHeight: 20,
                     borderRadius: BorderRadius.circular(AppSpacing.sm),
                     backgroundColor: AppColors.surface,
@@ -215,17 +175,16 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
                 ],
               ),
 
-              // ⬇️ 4. Espacio entre Barra y Textos finales
+              // 4. ESPACIO
               const Spacer(flex: 1),
 
-              // --- ZONA DE MENSAJES ---
+              // ZONA DE MENSAJES
               Container(
                 alignment: Alignment.center,
-                // Altura fija para reservar espacio y evitar saltos
                 height: 80, 
                 child: _isComplete
                     ? 
-                    // 🟢 COMPLETADO
+                    // COMPLETADO
                     Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -245,7 +204,7 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
                         ],
                       )
                     : 
-                    // 🟠 PROCESANDO
+                    // PROCESANDO
                     Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -270,7 +229,7 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
                       ),
               ),
 
-              // ⬇️ 5. ESPACIO INFERIOR (Equilibra con el de arriba)
+              // 5. ESPACIO INFERIOR
               const Spacer(flex: 2),
             ],
           ),
